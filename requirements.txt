@@ -1,0 +1,54 @@
+# Jarviee プロジェクト依存関係
+
+# コア依存ライブラリ
+python-dotenv==1.0.0     # 環境変数管理
+pydantic==2.5.2          # データモデル・バリデーション
+loguru==0.7.2            # 高度なロギング
+fastapi==0.104.1         # API構築（将来的なWeb API用）
+uvicorn==0.24.0          # ASGIサーバー（FastAPI用）
+typer==0.9.0             # CLIアプリケーション構築
+
+# LLM関連ライブラリ
+openai==1.3.5            # OpenAI API連携
+anthropic==0.7.4         # Anthropic Claude連携
+langchain==0.0.340       # LLMオーケストレーション
+llama-index==0.8.69      # 知識ベース・検索
+
+# 知識ベース関連
+neo4j==5.14.1            # グラフデータベース
+pymongo==4.6.0           # ドキュメントストア
+qdrant-client==1.6.4     # ベクトル検索
+sentence-transformers==2.2.2  # テキスト埋め込み
+
+# NLP / データ処理
+transformers==4.35.2     # Hugging Face Transformers
+datasets==2.15.0         # データセット管理
+nltk==3.8.1              # 自然言語処理ツールキット
+spacy==3.7.2             # 高度なNLP
+beautifulsoup4==4.12.2   # HTMLパース
+feedparser==6.0.10       # RSSフィード解析
+requests==2.31.0         # HTTP通信
+aiohttp==3.9.0           # 非同期HTTP通信
+
+# プログラミング支援関連
+tree-sitter==0.20.3      # コード解析
+pygit2==1.13.3           # Gitライブラリ
+pycodestyle==2.11.1      # コード品質チェック
+pylint==3.0.2            # コード品質チェック
+black==23.11.0           # コードフォーマッター
+
+# モニタリング・システム管理
+psutil==5.9.6            # システムモニタリング
+prometheus-client==0.18.0  # メトリクス収集
+
+# テスト関連
+pytest==7.4.3            # テストフレームワーク
+pytest-cov==4.1.0        # カバレッジレポート
+pytest-mock==3.12.0      # モックテスト
+
+# UI関連 (将来的に使用)
+# gradio==4.8.0           # Webインターフェース
+# streamlit==1.28.2       # データアプリケーション
+
+# 開発ツール
+jupyter==1.0.0           # 実験・開発用ノートブック

@@ -1,0 +1,211 @@
+{
+    "system": {
+        "name": "Jarviee",
+        "version": "0.1.0",
+        "description": "自律的知識探求型AIアシスタント",
+        "personality": "jarvis",
+        "data_dir": "${JARVIEE_DATA_DIR}",
+        "log_level": "${JARVIEE_LOG_LEVEL}"
+    },
+    "llm": {
+        "providers": {
+            "openai": {
+                "api_key": "${OPENAI_API_KEY}",
+                "models": {
+                    "default": "${DEFAULT_LLM_MODEL}",
+                    "chat": [
+                        "gpt-4",
+                        "gpt-4-turbo",
+                        "gpt-3.5-turbo"
+                    ],
+                    "embedding": "text-embedding-ada-002"
+                },
+                "parameters": {
+                    "temperature": 0.7,
+                    "max_tokens": 4096,
+                    "top_p": 1.0,
+                    "frequency_penalty": 0.0,
+                    "presence_penalty": 0.0
+                }
+            },
+            "anthropic": {
+                "api_key": "${ANTHROPIC_API_KEY}",
+                "models": {
+                    "default": "claude-3-opus",
+                    "chat": [
+                        "claude-3-opus",
+                        "claude-3-sonnet",
+                        "claude-3-haiku"
+                    ]
+                },
+                "parameters": {
+                    "temperature": 0.7,
+                    "max_tokens": 4096
+                }
+            },
+            "local": {
+                "path": "${LOCAL_LLM_PATH}",
+                "models": {
+                    "default": "llama3-70b",
+                    "chat": [
+                        "llama3-70b",
+                        "llama3-8b",
+                        "mistral-7b"
+                    ]
+                },
+                "parameters": {
+                    "temperature": 0.7,
+                    "max_tokens": 2048,
+                    "top_p": 0.9,
+                    "repeat_penalty": 1.1
+                }
+            }
+        },
+        "default_provider": "${DEFAULT_LLM_PROVIDER}",
+        "context_window": 16000,
+        "prompt_templates_dir": "./config/prompts"
+    },
+    "knowledge": {
+        "graph_db": {
+            "type": "neo4j",
+            "uri": "${NEO4J_URI}",
+            "user": "${NEO4J_USER}",
+            "password": "${NEO4J_PASSWORD}"
+        },
+        "document_store": {
+            "type": "mongodb",
+            "uri": "${MONGODB_URI}",
+            "database": "${MONGODB_DB}",
+            "collections": {
+                "documents": "documents",
+                "chunks": "chunks",
+                "metadata": "metadata"
+            }
+        },
+        "vector_store": {
+            "type": "${VECTOR_DB_TYPE}",
+            "path": "${VECTOR_DB_PATH}",
+            "uri": "${VECTOR_DB_URI}",
+            "dimension": 1536,
+            "metric": "cosine",
+            "collections": {
+                "default": "jarviee_vectors",
+                "code": "code_vectors",
+                "documents": "document_vectors"
+            }
+        },
+        "embedding_models": {
+            "default": "sentence-transformers/all-mpnet-base-v2",
+            "code": "sentence-transformers/all-MiniLM-L6-v2"
+        },
+        "interest_levels": [
+            "critical",
+            "high",
+            "medium",
+            "low",
+            "background"
+        ],
+        "knowledge_types": [
+            "concept",
+            "fact",
+            "procedure",
+            "principle",
+            "pattern",
+            "metadata"
+        ],
+        "sources": {
+            "trusted": [
+                "arxiv.org",
+                "github.com",
+                "stackoverflow.com",
+                "developer.mozilla.org",
+                "docs.python.org"
+            ],
+            "verification_required": [
+                "wikipedia.org",
+                "medium.com",
+                "dev.to"
+            ]
+        }
+    },
+    "autonomy": {
+        "level": "${AUTONOMY_LEVEL}",
+        "approval_required": "${ACTION_APPROVAL_REQUIRED}",
+        "max_planning_depth": 5,
+        "max_execution_steps": 10,
+        "allowed_actions": [
+            "search",
+            "read",
+            "analyze",
+            "code_generate",
+            "knowledge_query"
+        ],
+        "restricted_actions": [
+            "file_write",
+            "network_request",
+            "system_command"
+        ]
+    },
+    "programming": {
+        "default_language": "${DEFAULT_CODE_LANGUAGE}",
+        "quality_check": "${CODE_QUALITY_CHECK}",
+        "supported_languages": [
+            "python",
+            "javascript",
+            "typescript",
+            "java",
+            "csharp",
+            "go",
+            "rust",
+            "cpp",
+            "ruby"
+        ],
+        "analyzers": {
+            "python": ["ast", "pylint", "pycodestyle"],
+            "javascript": ["eslint", "prettier"],
+            "typescript": ["tsc", "eslint"]
+        },
+        "ide_integrations": [
+            "vscode",
+            "pycharm",
+            "intellij"
+        ]
+    },
+    "interfaces": {
+        "cli": {
+            "enabled": true,
+            "history_size": 100,
+            "prompt": "Jarviee> "
+        },
+        "api": {
+            "enabled": false,
+            "host": "${API_HOST}",
+            "port": "${API_PORT}",
+            "secret_key": "${API_SECRET_KEY}"
+        },
+        "ui": {
+            "enabled": false,
+            "theme": "dark",
+            "animations": true,
+            "voice_enabled": false
+        }
+    },
+    "security": {
+        "level": "${SECURITY_LEVEL}",
+        "encryption": {
+            "enabled": "${ENABLE_ENCRYPTION}",
+            "key": "${ENCRYPTION_KEY}",
+            "algorithm": "AES-256-GCM"
+        },
+        "data_retention": {
+            "conversation_history_days": 30,
+            "logs_days": 14
+        }
+    },
+    "monitoring": {
+        "metrics_collection": true,
+        "error_reporting": true,
+        "performance_tracking": true,
+        "usage_analytics": false
+    }
+}
