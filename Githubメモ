@@ -10,3 +10,10 @@ git push -u origin main
 git remote add origin https://github.com/ZundamonnoVRChatkaisetu/Jarviee.git
 git branch -M main
 git push -u origin main
+
+2回目以降のputh
+git commit -m "puthコメント"
+紐づけ
+git remote add origin https://github.com/ZundamonnoVRChatkaisetu/Jarviee.git
+puth
+git push -u origin main
