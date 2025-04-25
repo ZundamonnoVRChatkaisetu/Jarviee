@@ -3,3 +3,7 @@ logs/
 bin/
 etc/
 Githubメモ
+watch-and-push.ps1
+run-watch.bat
+venv/
+.venv

@@ -1,37 +1,53 @@
-# ç›£è¦–å¯¾è±¡ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªï¼ˆãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã®ãƒ«ãƒ¼ãƒˆï¼‰ã‚’æŒ‡å®š
+# watch-debug.ps1
 $projectDir = "C:\1_Sagyo\BenriToul\AI\Jarviee"
 Set-Location $projectDir
 
-# FileSystemWatcher ã®è¨­å®š
-$watcher = New-Object System.IO.FileSystemWatcher
-$watcher.Path = $projectDir
-$watcher.Filter = "*.*"
+# ƒOƒ[ƒoƒ‹•Ï”‚É•ÏX
+$Global:lastPushTime = Get-Date "2000-01-01"
+$debounceSeconds = 5
+
+$watcher = New-Object System.IO.FileSystemWatcher $projectDir, "*.*"
 $watcher.IncludeSubdirectories = $true
 $watcher.EnableRaisingEvents = $true
 
-# ã‚¤ãƒ™ãƒ³ãƒˆç™ºç”Ÿæ™‚ã®ã‚¢ã‚¯ã‚·ãƒ§ãƒ³
 $action = {
-    # å°‘ã—ã‚¦ã‚§ã‚¤ãƒˆã‚’æŒŸã‚“ã§ãƒ•ã‚¡ã‚¤ãƒ«æ›¸ãè¾¼ã¿å®Œäº†ã‚’å¾…ã¤
+    $fullPath = $Event.SourceEventArgs.FullPath
+    $now = Get-Date
+
+    # ƒƒOo—Í‚µ‚Ä‰½‚ª—ˆ‚Ä‚é‚©Šm”F
+    Write-Host "¨ Event: $fullPath at $($now.ToString('HH:mm:ss'))"
+    Write-Host "¨ LastPush: $($Global:lastPushTime.ToString('HH:mm:ss'))"
+
+    # .git ˆÈ‰º‚ğœŠO
+    if ($fullPath -match "\\\.git\\\") {
+        Write-Host "  (skipped .git)" 
+        return
+    }
+
+    # ƒfƒoƒEƒ“ƒX”»’è
+    if (($now - $Global:lastPushTime).TotalSeconds -lt $debounceSeconds) {
+        Write-Host "  (skipped by debounce)" 
+        return
+    }
+
+    # –{”ÔƒAƒNƒVƒ‡ƒ“
     Start-Sleep -Milliseconds 200
-    Write-Host "Detected change: $($Event.SourceEventArgs.FullPath)"
-    
+    Write-Host "  -> git add/commit/push"
     try {
         git add .
-        $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-        git commit -m "auto commit: $timestamp"
+        $msg = $now.ToString("yyyy-MM-dd_HH-mm-ss")
+        git commit -m "auto commit: $msg"
         git push
-        Write-Host "âœ… Pushed at $timestamp"
+        $Global:lastPushTime = $now
+        Write-Host "  ? Pushed at $msg"
     } catch {
-        Write-Warning "âŒ Git æ“ä½œä¸­ã«ã‚¨ãƒ©ãƒ¼: $_"
+        Write-Warning "  ? Git error: $_"
     }
 }
 
-# ã‚¤ãƒ™ãƒ³ãƒˆç™»éŒ²
-Register-ObjectEvent $watcher Changed -Action $action
-Register-ObjectEvent $watcher Created -Action $action
-Register-ObjectEvent $watcher Renamed -Action $action
-Register-ObjectEvent $watcher Deleted -Action $action
+foreach ($e in "Changed","Created","Renamed","Deleted") {
+    Register-ObjectEvent $watcher $e -Action $action
+}
 
-# ç„¡é™ãƒ«ãƒ¼ãƒ—ã§ã‚¹ã‚¯ãƒªãƒ—ãƒˆã‚’å¸¸é§ã•ã›ã‚‹
-Write-Host "Watching for file changes in $projectDir ..."
+Write-Host "=== Watching with debounce & exclude ==="
 while ($true) { Start-Sleep 1 }

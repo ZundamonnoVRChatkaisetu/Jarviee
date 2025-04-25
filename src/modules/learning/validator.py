@@ -13,6 +13,7 @@ from typing import Dict, List, Optional, Any, Tuple, Union, Callable
 from abc import ABC, abstractmethod
 import re
 import hashlib
+import os
 from datetime import datetime
 
 from src.core.knowledge.knowledge_base import KnowledgeBase, KnowledgeEntity

@@ -9,6 +9,7 @@ Stack Overflow、Reddit、技術フォーラム等のQ&A形式の情報を収集
 import logging
 import json
 import time
+import random
 import os
 from typing import Dict, List, Optional, Any, Tuple, Union, Callable
 import uuid
