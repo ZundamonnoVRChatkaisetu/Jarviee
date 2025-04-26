@@ -1,0 +1,380 @@
+"""
+Main API server implementation for Jarviee System.
+
+This module implements a FastAPI-based REST API server for the Jarviee system,
+providing endpoints to access and control various AI technology integrations.
+"""
+
+import logging
+import time
+from typing import Any, Dict, List, Optional, Union
+
+from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks, Query, Path, Body
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
+
+from src.core.integration.framework import (
+    IntegrationFramework, 
+    IntegrationMethod,
+    IntegrationCapabilityTag
+)
+from src.core.utils.config import Config
+
+
+# Models for API requests and responses
+class TaskContent(BaseModel):
+    """Model for task content."""
+    
+    # This is a generic model that will be overridden by specific task types
+    content: Dict[str, Any] = Field(
+        default={},
+        description="Task content, structure depends on task type"
+    )
+
+
+class TaskRequest(BaseModel):
+    """Model for task execution request."""
+    
+    task_type: str = Field(
+        ..., 
+        description="Type of task to process"
+    )
+    content: Dict[str, Any] = Field(
+        ...,
+        description="Task content, structure depends on task type"
+    )
+    context: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Optional context information for task processing"
+    )
+
+
+class PipelineRequest(BaseModel):
+    """Model for pipeline creation request."""
+    
+    pipeline_id: str = Field(
+        ...,
+        description="ID for the new pipeline"
+    )
+    integration_ids: List[str] = Field(
+        ...,
+        description="List of integration IDs to include in the pipeline"
+    )
+    method: str = Field(
+        default="SEQUENTIAL",
+        description="Processing method for the pipeline"
+    )
+
+
+class ErrorResponse(BaseModel):
+    """Model for error responses."""
+    
+    error: str = Field(
+        ...,
+        description="Error message"
+    )
+    details: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Additional error details"
+    )
+
+
+# API setup
+def create_app() -> FastAPI:
+    """
+    Create and configure the FastAPI application.
+    
+    Returns:
+        The configured FastAPI application
+    """
+    # Load configuration
+    config = Config()
+    
+    # Create FastAPI app
+    app = FastAPI(
+        title="Jarviee API",
+        description="API for Jarviee AI Technology Integration Framework",
+        version="0.1.0"
+    )
+    
+    # Add CORS middleware
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=config.get("api.cors.origins", ["*"]),
+        allow_credentials=config.get("api.cors.allow_credentials", True),
+        allow_methods=config.get("api.cors.methods", ["*"]),
+        allow_headers=config.get("api.cors.headers", ["*"]),
+    )
+    
+    # Create integration framework instance
+    framework = IntegrationFramework()
+    
+    # Dependency for getting the framework instance
+    def get_framework() -> IntegrationFramework:
+        return framework
+    
+    # Register startup and shutdown events
+    @app.on_event("startup")
+    async def startup_event():
+        """Initialize the system on startup."""
+        logging.info("Starting Jarviee API server")
+        
+        # Initialize integrations (in a real app, this would load actual integrations)
+        logging.info("Initializing integrations")
+        
+        # TODO: Add actual integration initialization
+        # This would be replaced with actual code to initialize and register integrations
+    
+    @app.on_event("shutdown")
+    async def shutdown_event():
+        """Clean up resources on shutdown."""
+        logging.info("Shutting down Jarviee API server")
+        framework.shutdown()
+    
+    # API routes
+    @app.get("/", tags=["General"])
+    async def root():
+        """Root endpoint, returns API information."""
+        return {
+            "name": "Jarviee API",
+            "version": "0.1.0",
+            "description": "API for Jarviee AI Technology Integration Framework",
+            "status": "running",
+            "documentation": "/docs"
+        }
+    
+    @app.get("/health", tags=["General"])
+    async def health_check():
+        """Health check endpoint."""
+        return {
+            "status": "healthy",
+            "timestamp": time.time(),
+            "uptime": "TODO: Calculate uptime",  # Would be implemented in a real app
+            "version": "0.1.0"
+        }
+    
+    # Integration endpoints
+    @app.get("/integrations", tags=["Integrations"])
+    async def list_integrations(framework: IntegrationFramework = Depends(get_framework)):
+        """List all available integrations."""
+        status = framework.get_framework_status()
+        return {
+            "integrations": status["integrations"],
+            "count": status["total_integrations"],
+            "active_count": status["active_integrations"]
+        }
+    
+    @app.get("/integrations/{integration_id}", tags=["Integrations"])
+    async def get_integration(
+        integration_id: str = Path(..., description="ID of the integration to retrieve"),
+        framework: IntegrationFramework = Depends(get_framework)
+    ):
+        """Get detailed information about a specific integration."""
+        integration = framework.get_integration(integration_id)
+        if not integration:
+            raise HTTPException(status_code=404, detail=f"Integration '{integration_id}' not found")
+        
+        return integration.get_status()
+    
+    @app.post("/integrations/{integration_id}/activate", tags=["Integrations"])
+    async def activate_integration(
+        integration_id: str = Path(..., description="ID of the integration to activate"),
+        framework: IntegrationFramework = Depends(get_framework)
+    ):
+        """Activate an integration."""
+        success = framework.activate_integration(integration_id)
+        if not success:
+            raise HTTPException(status_code=400, detail=f"Failed to activate integration '{integration_id}'")
+        
+        return {"status": "success", "message": f"Integration '{integration_id}' activated"}
+    
+    @app.post("/integrations/{integration_id}/deactivate", tags=["Integrations"])
+    async def deactivate_integration(
+        integration_id: str = Path(..., description="ID of the integration to deactivate"),
+        framework: IntegrationFramework = Depends(get_framework)
+    ):
+        """Deactivate an integration."""
+        success = framework.deactivate_integration(integration_id)
+        if not success:
+            raise HTTPException(status_code=400, detail=f"Failed to deactivate integration '{integration_id}'")
+        
+        return {"status": "success", "message": f"Integration '{integration_id}' deactivated"}
+    
+    @app.post("/integrations/{integration_id}/tasks", tags=["Tasks"])
+    async def process_task(
+        task_request: TaskRequest,
+        integration_id: str = Path(..., description="ID of the integration to use"),
+        framework: IntegrationFramework = Depends(get_framework)
+    ):
+        """Process a task using a specific integration."""
+        integration = framework.get_integration(integration_id)
+        if not integration:
+            raise HTTPException(status_code=404, detail=f"Integration '{integration_id}' not found")
+        
+        if not integration.active:
+            raise HTTPException(status_code=400, detail=f"Integration '{integration_id}' is not active")
+        
+        try:
+            result = framework.process_task(
+                integration_id,
+                task_request.task_type,
+                task_request.content,
+                task_request.context
+            )
+            return result
+        except Exception as e:
+            logging.exception(f"Error processing task with integration '{integration_id}'")
+            raise HTTPException(status_code=500, detail=str(e))
+    
+    # Pipeline endpoints
+    @app.get("/pipelines", tags=["Pipelines"])
+    async def list_pipelines(framework: IntegrationFramework = Depends(get_framework)):
+        """List all available pipelines."""
+        status = framework.get_framework_status()
+        return {
+            "pipelines": status["pipelines"],
+            "count": status["total_pipelines"]
+        }
+    
+    @app.get("/pipelines/{pipeline_id}", tags=["Pipelines"])
+    async def get_pipeline(
+        pipeline_id: str = Path(..., description="ID of the pipeline to retrieve"),
+        framework: IntegrationFramework = Depends(get_framework)
+    ):
+        """Get detailed information about a specific pipeline."""
+        pipeline = framework.get_pipeline(pipeline_id)
+        if not pipeline:
+            raise HTTPException(status_code=404, detail=f"Pipeline '{pipeline_id}' not found")
+        
+        # Create a JSON-serializable representation of the pipeline
+        integrations = [i.integration_id for i in pipeline.integrations]
+        
+        return {
+            "pipeline_id": pipeline.pipeline_id,
+            "method": pipeline.method.name,
+            "integrations": integrations
+        }
+    
+    @app.post("/pipelines", tags=["Pipelines"])
+    async def create_pipeline(
+        pipeline_request: PipelineRequest,
+        framework: IntegrationFramework = Depends(get_framework)
+    ):
+        """Create a new pipeline."""
+        # Validate that all integrations exist
+        for integration_id in pipeline_request.integration_ids:
+            if not framework.get_integration(integration_id):
+                raise HTTPException(status_code=404, detail=f"Integration '{integration_id}' not found")
+        
+        # Convert method string to enum value
+        method = getattr(IntegrationMethod, pipeline_request.method, None)
+        if not method:
+            raise HTTPException(status_code=400, detail=f"Invalid method: {pipeline_request.method}")
+        
+        try:
+            pipeline = framework.create_pipeline(
+                pipeline_request.pipeline_id,
+                pipeline_request.integration_ids,
+                method
+            )
+            
+            return {
+                "status": "success",
+                "message": f"Pipeline '{pipeline_request.pipeline_id}' created",
+                "pipeline_id": pipeline_request.pipeline_id,
+                "method": method.name,
+                "integrations": pipeline_request.integration_ids
+            }
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            logging.exception(f"Error creating pipeline '{pipeline_request.pipeline_id}'")
+            raise HTTPException(status_code=500, detail=str(e))
+    
+    @app.delete("/pipelines/{pipeline_id}", tags=["Pipelines"])
+    async def delete_pipeline(
+        pipeline_id: str = Path(..., description="ID of the pipeline to delete"),
+        framework: IntegrationFramework = Depends(get_framework)
+    ):
+        """Delete a pipeline."""
+        if not framework.get_pipeline(pipeline_id):
+            raise HTTPException(status_code=404, detail=f"Pipeline '{pipeline_id}' not found")
+        
+        success = framework.unregister_pipeline(pipeline_id)
+        if not success:
+            raise HTTPException(status_code=500, detail=f"Failed to delete pipeline '{pipeline_id}'")
+        
+        return {"status": "success", "message": f"Pipeline '{pipeline_id}' deleted"}
+    
+    @app.post("/pipelines/{pipeline_id}/tasks", tags=["Tasks"])
+    async def process_pipeline_task(
+        task_request: TaskRequest,
+        pipeline_id: str = Path(..., description="ID of the pipeline to use"),
+        framework: IntegrationFramework = Depends(get_framework)
+    ):
+        """Process a task using a specific pipeline."""
+        pipeline = framework.get_pipeline(pipeline_id)
+        if not pipeline:
+            raise HTTPException(status_code=404, detail=f"Pipeline '{pipeline_id}' not found")
+        
+        try:
+            result = framework.process_task_with_pipeline(
+                pipeline_id,
+                task_request.task_type,
+                task_request.content,
+                task_request.context
+            )
+            return result
+        except Exception as e:
+            logging.exception(f"Error processing task with pipeline '{pipeline_id}'")
+            raise HTTPException(status_code=500, detail=str(e))
+    
+    # Task-specific endpoints
+    @app.post("/tasks/auto-pipeline", tags=["Tasks"])
+    async def create_task_pipeline(
+        task_request: TaskRequest,
+        capabilities: List[str] = Query(None, description="Required capabilities for the task (optional)"),
+        framework: IntegrationFramework = Depends(get_framework)
+    ):
+        """Create a pipeline specifically for a task and process it."""
+        # Convert capability strings to enum values
+        capability_enums = []
+        if capabilities:
+            for capability in capabilities:
+                cap_enum = getattr(IntegrationCapabilityTag, capability, None)
+                if not cap_enum:
+                    raise HTTPException(status_code=400, detail=f"Invalid capability: {capability}")
+                capability_enums.append(cap_enum)
+        
+        try:
+            pipeline_id = framework.create_task_pipeline(
+                task_request.task_type,
+                task_request.content,
+                task_request.context,
+                capability_enums if capability_enums else None
+            )
+            
+            if not pipeline_id:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Could not create a suitable pipeline for this task"
+                )
+            
+            # Process the task with the created pipeline
+            result = framework.process_task_with_pipeline(
+                pipeline_id,
+                task_request.task_type,
+                task_request.content,
+                task_request.context
+            )
+            
+            # Add pipeline information to the result
+            result["pipeline_id"] = pipeline_id
+            
+            return result
+        except Exception as e:
+            logging.exception("Error creating task-specific pipeline")
+            raise HTTPException(status_code=500, detail=str(e))
+    
+    return app

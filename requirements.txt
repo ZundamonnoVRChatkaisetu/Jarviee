@@ -7,6 +7,7 @@ loguru==0.7.2            # 高度なロギング
 fastapi==0.104.1         # API構築（将来的なWeb API用）
 uvicorn==0.24.0          # ASGIサーバー（FastAPI用）
 typer==0.9.0             # CLIアプリケーション構築
+rich==13.7.0             # リッチテキストとプログレスバー (CLI用)
 
 # LLM関連ライブラリ
 openai==1.3.5            # OpenAI API連携
@@ -45,9 +46,24 @@ prometheus-client==0.18.0  # メトリクス収集
 pytest==7.4.3            # テストフレームワーク
 pytest-cov==4.1.0        # カバレッジレポート
 pytest-mock==3.12.0      # モックテスト
+pytest-asyncio==0.23.2   # 非同期テスト
 
-# UI関連 (将来的に使用)
-# gradio==4.8.0           # Webインターフェース
+# 強化学習関連
+ray[rllib]==2.6.3        # 分散強化学習
+gymnasium==0.26.3        # 強化学習環境 - rayと互換性のあるバージョンに固定
+
+# シンボリックAI関連
+pyswip==0.2.10           # Prologインターフェース
+sympy==1.12              # 記号計算ライブラリ
+
+# マルチモーダル関連
+pillow==10.0.1           # 画像処理
+torchvision==0.16.1      # 画像認識モデル
+torchaudio==2.1.1        # 音声処理
+clip==1.0                # OpenAI CLIP
+
+# UI関連
+gradio==4.8.0           # Webインターフェース - GUIプロトタイプ用に有効化
 # streamlit==1.28.2       # データアプリケーション
 
 # 開発ツール

@@ -1,0 +1,153 @@
+{
+  "name": "jarviee-vscode",
+  "displayName": "Jarviee AI Assistant",
+  "description": "AI技術統合システムJarvieeのVisual Studio Code拡張",
+  "version": "0.1.0",
+  "publisher": "jarviee",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Machine Learning",
+    "Programming Languages",
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "jarviee.connect",
+        "title": "Jarviee: サーバーに接続"
+      },
+      {
+        "command": "jarviee.disconnect",
+        "title": "Jarviee: サーバーから切断"
+      },
+      {
+        "command": "jarviee.showStatus",
+        "title": "Jarviee: ステータスを表示"
+      },
+      {
+        "command": "jarviee.analyzeCode",
+        "title": "Jarviee: 現在のコードを分析"
+      },
+      {
+        "command": "jarviee.debugCode",
+        "title": "Jarviee: デバッグヘルプを表示"
+      },
+      {
+        "command": "jarviee.optimizeCode",
+        "title": "Jarviee: コードを最適化"
+      }
+    ],
+    "configuration": {
+      "title": "Jarviee",
+      "properties": {
+        "jarviee.serverUrl": {
+          "type": "string",
+          "default": "http://localhost:7889",
+          "description": "JarvieeサーバーのURL"
+        },
+        "jarviee.websocketUrl": {
+          "type": "string",
+          "default": "ws://localhost:7890",
+          "description": "Jarviee WebSocketサーバーのURL"
+        },
+        "jarviee.autoConnect": {
+          "type": "boolean",
+          "default": true,
+          "description": "起動時に自動的に接続する"
+        },
+        "jarviee.showStatusBarItem": {
+          "type": "boolean",
+          "default": true,
+          "description": "ステータスバーにJarvieeの状態を表示する"
+        },
+        "jarviee.enableDiagnostics": {
+          "type": "boolean",
+          "default": true,
+          "description": "コードの分析と診断を有効にする"
+        },
+        "jarviee.excludePatterns": {
+          "type": "array",
+          "default": ["node_modules", ".git", "__pycache__", "venv", ".venv"],
+          "description": "プロジェクト構造取得時に除外するパターン"
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "jarviee-sidebar",
+          "title": "Jarviee",
+          "icon": "resources/jarviee.svg"
+        }
+      ]
+    },
+    "views": {
+      "jarviee-sidebar": [
+        {
+          "id": "jarviee.integrationView",
+          "name": "AI技術統合"
+        },
+        {
+          "id": "jarviee.codeAssistView",
+          "name": "コード支援"
+        },
+        {
+          "id": "jarviee.diagnosticsView",
+          "name": "診断情報"
+        }
+      ]
+    },
+    "menus": {
+      "editor/context": [
+        {
+          "command": "jarviee.analyzeCode",
+          "group": "jarviee",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "jarviee.debugCode",
+          "group": "jarviee",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "jarviee.optimizeCode",
+          "group": "jarviee",
+          "when": "editorHasSelection"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "lint": "eslint src --ext ts",
+    "test": "jest"
+  },
+  "dependencies": {
+    "ws": "^8.13.0",
+    "axios": "^1.6.0",
+    "vscode-languageclient": "^8.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^18.15.0",
+    "@types/vscode": "^1.75.0",
+    "@types/ws": "^8.5.5",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.39.0",
+    "jest": "^29.5.0",
+    "ts-jest": "^29.1.0",
+    "ts-loader": "^9.4.3",
+    "typescript": "^5.0.4",
+    "webpack": "^5.85.0",
+    "webpack-cli": "^5.1.1"
+  }
+}

@@ -14,6 +14,9 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
+# ローカルプロバイダーをインポート
+from .local_provider import LocalModelProvider
+
 # プロバイダー実装は将来的に別モジュールに移動
 class LLMProvider(ABC):
     """LLMプロバイダーの抽象基底クラス"""

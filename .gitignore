@@ -7,3 +7,4 @@ watch-and-push.ps1
 run-watch.bat
 venv/
 .venv
+models/*
