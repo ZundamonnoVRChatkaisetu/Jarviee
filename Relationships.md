@@ -69,12 +69,17 @@ LLMコア
 
 3. **自律行動パス**:
    ```
-   自律行動エンジン → 目標設定 → 計画立案 → LLMコア（検証） → 実行モジュール → 結果評価 → 知識ベース（学習）
+   自律行動エンジン → 目標設定 → 計画立案 → LLMコア（検証） → 実行モジュール → 結果評価 → フィードバック収集 → 学習・改善 → 知識ベース（更新）
    ```
 
 4. **プログラミングタスクパス**:
    ```
    プログラミングモジュール → コード分析 → LLMコア（理解処理） → 知識ベース（参照） → コード生成/修正 → 検証 → ユーザーインターフェース
+   ```
+
+5. **フィードバック・学習パス**:
+   ```
+   フィードバック収集 → フィードバック分析 → 学習体験生成 → パターンクラスタリング → 改善計画生成 → 改善実装 → システム更新
    ```
 
 ## 3. ファイル別依存関係
@@ -89,9 +94,15 @@ LLMコア
 | `src/core/knowledge/graph.py` | 知識グラフエンジン | Neo4j, `llm/engine.py` | 知識利用全モジュール |
 | `src/core/knowledge/vector_store.py` | ベクトル検索エンジン | Vector DB, `llm/engine.py` | 意味検索機能 |
 | `src/core/knowledge/query_engine.py` | 知識クエリシステム | `knowledge/graph.py`, `knowledge/vector_store.py` | 知識検索全機能 |
-| `src/core/autonomy/goal_manager.py` | 目標管理システム | `llm/engine.py`, `knowledge/graph.py` | 自律エージェント |
-| `src/core/autonomy/planner.py` | 計画生成システム | `autonomy/goal_manager.py`, `llm/engine.py` | 自律エージェント |
-| `src/core/autonomy/executor.py` | 行動実行エンジン | `autonomy/planner.py` | 自律アクション |
+| `src/core/autonomy/goal/models.py` | 目標データモデル | - | 目標管理システム |
+| `src/core/autonomy/goal/interpreter.py` | 目標解釈モジュール | `llm/engine.py` | 目標管理システム |
+| `src/core/autonomy/goal/manager.py` | 目標管理マネージャー | `goal/models.py`, `goal/interpreter.py` | 計画生成システム |
+| `src/core/autonomy/planning/models.py` | 計画データモデル | - | 計画生成システム |
+| `src/core/autonomy/planning/planner.py` | 計画生成システム | `planning/models.py`, `goal/manager.py`, `llm/engine.py` | 実行エンジン |
+| `src/core/autonomy/execution/models.py` | 実行データモデル | - | 実行エンジン |
+| `src/core/autonomy/execution/executor.py` | 行動実行エンジン | `execution/models.py`, `planning/planner.py` | 自律行動モジュール |
+| `src/core/autonomy/feedback/models.py` | フィードバックデータモデル | - | フィードバック管理システム |
+| `src/core/autonomy/feedback/feedback_manager.py` | フィードバック管理システム | `feedback/models.py`, `llm/engine.py`, `execution/executor.py` | 自律行動エンジン |
 | `src/core/utils/event_bus.py` | イベント通信システム | - | 全モジュール間通信 |
 | `src/core/utils/logger.py` | ロギングシステム | - | 全モジュール |
 | `src/core/utils/config.py` | 設定管理システム | - | 全モジュール |
@@ -203,16 +214,33 @@ LLMコア
 ### 5.3 自律行動フロー
 
 ```
-1. src/core/autonomy/goal_manager.py       # 目標設定
-2. src/core/autonomy/planner.py            # 計画立案
-3. src/core/llm/engine.py                  # 計画検証
-4. src/core/autonomy/executor.py           # 実行管理
+1. src/core/autonomy/goal/manager.py             # 目標設定
+2. src/core/autonomy/planning/planner.py         # 計画立案
+3. src/core/llm/engine.py                        # 計画検証
+4. src/core/autonomy/execution/executor.py       # 実行管理
 5. [タスク別実行]
-   ├── src/modules/programming/*.py        # プログラミングタスク
-   ├── src/modules/learning/*.py           # 知識獲得タスク
-   └── src/modules/agents/*.py             # 複合タスク
-6. src/core/autonomy/evaluator.py          # 結果評価
-7. src/core/knowledge/learner.py           # 経験学習
+   ├── src/modules/programming/*.py              # プログラミングタスク
+   ├── src/modules/learning/*.py                 # 知識獲得タスク
+   └── src/modules/agents/*.py                   # 複合タスク
+6. src/core/autonomy/feedback/feedback_manager.py # フィードバック収集・分析
+7. src/core/autonomy/feedback/feedback_manager.py # 学習・改善計画生成
+8. src/core/knowledge/learner.py                 # 知識ベース更新
+```
+
+### 5.4 フィードバック・学習フロー
+
+```
+1. src/core/autonomy/feedback/feedback_manager.py  # フィードバック収集
+   └── FeedbackCollector                           # 各種ソースからのフィードバック収集
+2. src/core/autonomy/feedback/feedback_manager.py  # フィードバック分析
+   └── FeedbackAnalyzer                            # LLMを用いたフィードバック分析
+3. src/core/autonomy/feedback/feedback_manager.py  # 学習体験生成
+   └── FeedbackAnalyzer                            # インサイト抽出とパターン識別
+4. src/core/autonomy/feedback/feedback_manager.py  # 改善計画生成
+   └── LearningManager                             # 学習からの改善計画作成
+5. src/core/autonomy/feedback/feedback_manager.py  # 改善実装
+   └── LearningManager                             # 改善の適用と検証
+6. src/core/knowledge/learner.py                   # 知識ベース更新
 ```
 
 ## 6. モジュール拡張ポイント
@@ -242,6 +270,13 @@ LLMコア
 |-------------|------|-----------------|
 | `src/modules/learning/sources/` | 新情報源連携 | `src/modules/learning/sources/base.py` |
 | `src/modules/learning/parsers/` | 新データ形式解析 | `src/modules/learning/parsers/base.py` |
+
+### 6.4 フィードバックソース拡張
+
+| 拡張ポイント | 説明 | 拡張用テンプレート |
+|-------------|------|-----------------|
+| `src/core/autonomy/feedback/sources/` | 新フィードバックソース | `src/core/autonomy/feedback/sources/base.py` |
+| `src/core/autonomy/feedback/analyzers/` | 新分析アルゴリズム | `src/core/autonomy/feedback/analyzers/base.py` |
 
 ## 7. ビルド・デプロイメント関係
 

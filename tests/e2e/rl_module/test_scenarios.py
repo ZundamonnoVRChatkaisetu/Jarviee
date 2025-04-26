@@ -667,6 +667,100 @@ class RLScenarioTester:
         
         print("\n" + "="*80)
 
+    # 追加のエンドツーエンドテストをtest_scenarios.pyに実装
+    def run_combined_technologies_scenario(self) -> Dict[str, Any]:
+        """
+        Run a scenario that combines multiple AI technologies with RL.
+        
+        This scenario demonstrates how RL works in conjunction with other
+        AI technologies (LLM, Symbolic AI, Multimodal) to solve complex tasks.
+        
+        Returns:
+            Scenario results
+        """
+        self.logger.info("Starting Combined Technologies scenario")
+        
+        # Use a custom test environment
+        test_env = self.test_environments["custom"]
+        
+        # Define task parameters
+        task_id = "combined_tech_task"
+        goal_description = "Solve a complex problem requiring multiple AI technologies"
+        
+        # Configure mock LLM responses
+        if isinstance(self.llm_engine, MockLLMEngine):
+            self.llm_engine.configure_template_values({
+                "OBJECTIVE": "solve_complex_problem",
+                "CONSTRAINT_1": "use_multiple_technologies",
+                "CONSTRAINT_2": "optimize_overall_solution",
+                "PRIORITY_1": "solution_quality",
+                "PRIORITY_2": "technology_integration"
+            })
+        
+        # Create test environment that simulates other AI technologies
+        # This is a simplified mock of the actual integration
+        tech_integration_context = {
+            "llm_enabled": True,
+            "symbolic_ai_enabled": True,
+            "multimodal_enabled": True,
+            "tech_states": {
+                "llm": {"context_length": 1024, "temperature": 0.7},
+                "symbolic_ai": {"rules": ["rule1", "rule2"], "confidence": 0.8},
+                "multimodal": {"visual_data": "encoded_mock_data", "audio_data": "encoded_mock_data"}
+            }
+        }
+        
+        # Create a reward function that considers all technologies
+        def combined_tech_reward(state: Dict[str, Any]) -> float:
+            # Base reward from RL component
+            base_reward = 0.4 * (state.get("items_collected", 0) / 3.0)
+            
+            # Reward contribution from LLM component (mock)
+            llm_contribution = 0.2 * state.get("llm_quality", 0.5)
+            
+            # Reward contribution from Symbolic AI component (mock)
+            symbolic_contribution = 0.2 * state.get("symbolic_accuracy", 0.5)
+            
+            # Reward contribution from Multimodal component (mock)
+            multimodal_contribution = 0.2 * state.get("multimodal_accuracy", 0.5)
+            
+            return base_reward + llm_contribution + symbolic_contribution + multimodal_contribution
+        
+        # Create task with combined technologies context
+        initial_state = test_env.simulator.state.copy()
+        initial_state.update({
+            "llm_quality": 0.5,
+            "symbolic_accuracy": 0.5,
+            "multimodal_accuracy": 0.5
+        })
+        
+        # Create task in the adapter
+        self.rl_adapter.active_tasks[task_id] = {
+            "created_at": time.time(),
+            "goal_description": goal_description,
+            "environment_state": initial_state,
+            "tech_integration_context": tech_integration_context,
+            "reward_function": combined_tech_reward
+        }
+        
+        # Run test
+        results = test_env.run_rl_adapter_test(
+            self.rl_adapter,
+            task_id,
+            goal_description,
+            episodes=self.config.get("test_iterations", 3)
+        )
+        
+        # Add scenario-specific metrics
+        results["scenario"] = "combined_technologies"
+        results["technology_integration_score"] = np.mean([
+            s.get("llm_quality", 0) + s.get("symbolic_accuracy", 0) + s.get("multimodal_accuracy", 0)
+            for s in test_env.simulator.state_history if all(k in s for k in ["llm_quality", "symbolic_accuracy", "multimodal_accuracy"])
+        ]) / 3.0
+        
+        self.logger.info(f"Combined Technologies scenario completed with mean reward: {results['mean_reward']:.2f}")
+        return results
+
 
 def main():
     """Main function to run scenarios from command line."""
