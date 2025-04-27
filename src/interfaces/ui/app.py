@@ -24,6 +24,18 @@ from src.core.integration.framework import IntegrationFramework
 from src.core.utils.config import Config
 from src.core.utils.event_bus import EventBus
 
+# コンポーネントのインポート
+from src.interfaces.ui.components.chat_panel import ChatPanel
+from src.interfaces.ui.components.system_panel import SystemPanel
+from src.interfaces.ui.components.task_panel import TaskPanel
+from src.interfaces.ui.components.debug_panel import DebugPanel
+from src.interfaces.ui.components.ide_panel import IDEPanel
+
+# プログラミングモジュールのインポート
+from src.modules.programming.code_analyzer import CodeAnalyzer
+from src.modules.programming.debug.interactive_debugger import InteractiveDebugger
+from src.modules.programming.ide.ide_extension import IDEExtensionService
+
 # ロガーの設定
 logger = logging.getLogger(__name__)
 
@@ -63,6 +75,9 @@ class JarvieeGUI:
         self.llm_engine = None
         self.query_engine = None
         self.framework = None
+        self.code_analyzer = None
+        self.interactive_debugger = None
+        self.ide_service = None
         self.integrations = []
         self.pipelines = []
         
@@ -98,6 +113,38 @@ class JarvieeGUI:
         except Exception as e:
             logger.error(f"統合フレームワーク初期化エラー: {str(e)}")
             self.framework = None
+        
+        # コード解析エンジンの初期化
+        try:
+            self.code_analyzer = CodeAnalyzer()
+            logger.info("コード解析エンジン初期化完了")
+        except Exception as e:
+            logger.error(f"コード解析エンジン初期化エラー: {str(e)}")
+            self.code_analyzer = None
+        
+        # IDE拡張サービスの初期化
+        try:
+            self.ide_service = IDEExtensionService(self.config, self.event_bus)
+            logger.info("IDE拡張サービス初期化完了")
+        except Exception as e:
+            logger.error(f"IDE拡張サービス初期化エラー: {str(e)}")
+            self.ide_service = None
+        
+        # インタラクティブデバッガーの初期化
+        if self.llm_engine and self.code_analyzer and self.query_engine and self.ide_service:
+            try:
+                self.interactive_debugger = InteractiveDebugger(
+                    self.llm_engine,
+                    self.code_analyzer,
+                    self.query_engine,
+                    self.ide_service,
+                    self.event_bus,
+                    self.config
+                )
+                logger.info("インタラクティブデバッガー初期化完了")
+            except Exception as e:
+                logger.error(f"インタラクティブデバッガー初期化エラー: {str(e)}")
+                self.interactive_debugger = None
         
         # モック統合を読み込み（デモ用）
         self._load_mock_integrations()
@@ -205,6 +252,10 @@ class JarvieeGUI:
                 response = self._generate_pipeline_response(message)
             elif "help" in message.lower():
                 response = self._generate_help_response()
+            elif "debug" in message.lower():
+                response = self._generate_debug_response(message)
+            elif "ide" in message.lower():
+                response = self._generate_ide_response(message)
             else:
                 # デフォルトの応答
                 response = self._generate_default_response(message)
@@ -229,6 +280,9 @@ class JarvieeGUI:
             "llm_engine": self.llm_engine is not None,
             "query_engine": self.query_engine is not None,
             "framework": self.framework is not None,
+            "code_analyzer": self.code_analyzer is not None,
+            "interactive_debugger": self.interactive_debugger is not None,
+            "ide_service": self.ide_service is not None,
             "active_integrations": sum(1 for i in self.integrations if i["active"]),
             "total_integrations": len(self.integrations),
             "pipelines": len(self.pipelines)
@@ -240,6 +294,10 @@ class JarvieeGUI:
             f"- LLMエンジン: {'稼働中' if status['llm_engine'] else '停止中'}\n"
             f"- 知識クエリエンジン: {'稼働中' if status['query_engine'] else '停止中'}\n"
             f"- 統合フレームワーク: {'稼働中' if status['framework'] else '停止中'}\n\n"
+            f"**プログラミング支援**\n"
+            f"- コード解析エンジン: {'稼働中' if status['code_analyzer'] else '停止中'}\n"
+            f"- インタラクティブデバッガー: {'稼働中' if status['interactive_debugger'] else '停止中'}\n"
+            f"- IDE連携サービス: {'稼働中' if status['ide_service'] else '停止中'}\n\n"
             f"**統合状況**\n"
             f"- アクティブな統合: {status['active_integrations']}/{status['total_integrations']}\n"
             f"- パイプライン: {status['pipelines']}\n\n"
@@ -315,6 +373,47 @@ class JarvieeGUI:
                 "または、「パイプラインリストを表示して」と言っていただければ、利用可能なすべてのパイプラインを表示します。"
             )
     
+    def _generate_debug_response(self, message: str) -> str:
+        """デバッグに関する応答を生成"""
+        return (
+            "てゅん、デバッグ機能についてご質問ですね。新しく実装されたインタラクティブデバッグ機能では、以下のことが可能です：\n\n"
+            "**主な機能**\n"
+            "- デバッグセッションの開始・停止・一時停止・再開\n"
+            "- ステップ実行（ステップオーバー、ステップイン、ステップアウト）\n"
+            "- ブレークポイントの設定・管理\n"
+            "- 変数の評価と監視\n"
+            "- コールスタックの表示\n\n"
+            
+            "**利用方法**\n"
+            "デバッグ機能を使用するには、メインインターフェースの「デバッグ」タブを選択してください。\n"
+            "そこからデバッグするスクリプトのパスと言語を指定して、セッションを開始できます。\n\n"
+            
+            "インタラクティブデバッガーは現在、Python, JavaScript, TypeScriptに対応しています。\n"
+            "IDE連携機能と組み合わせることで、より高度なデバッグ体験が可能になります。"
+        )
+    
+    def _generate_ide_response(self, message: str) -> str:
+        """IDE連携に関する応答を生成"""
+        return (
+            "てゅん、IDE連携機能についてご質問ですね。Jarvieeは以下のIDE連携機能を提供しています：\n\n"
+            "**対応IDE**\n"
+            "- Visual Studio Code（完全対応）\n"
+            "- IntelliJ IDEA（開発中）\n\n"
+            
+            "**主な機能**\n"
+            "- IDEとの接続・切断\n"
+            "- 拡張機能のインストール・アンインストール\n"
+            "- プロジェクト内のファイル表示と操作\n"
+            "- コード編集とナビゲーション\n"
+            "- デバッグ機能との連携\n\n"
+            
+            "**設定方法**\n"
+            "IDE連携を利用するには、メインインターフェースの「IDE連携」タブを選択し、対象のIDEを選択して接続してください。\n"
+            "初回接続時は拡張機能のインストールが必要な場合があります。\n\n"
+            
+            "IDE連携を使用することで、Jarvieeのコード生成・解析・デバッグ機能をお使いのIDE内から直接利用できます。"
+        )
+    
     def _generate_help_response(self) -> str:
         """ヘルプ情報を生成"""
         return (
@@ -334,10 +433,16 @@ class JarvieeGUI:
             "- `新しいパイプラインを作成して` - 新しいパイプラインを作成（未実装）\n"
             "- `creative_problem_solving パイプラインでタスクを実行して` - パイプラインでタスクを実行（未実装）\n\n"
             
-            "**その他の機能**\n"
-            "- 自然言語での質問応答\n"
-            "- AI技術統合に関する説明\n"
-            "- プログラミング支援（未実装）\n\n"
+            "**プログラミング支援**\n"
+            "- `デバッグ機能について教えて` - デバッグ機能の説明\n"
+            "- `IDE連携について教えて` - IDE連携機能の説明\n\n"
+            
+            "**インターフェース**\n"
+            "- 「チャット」タブ - 対話型インターフェース\n"
+            "- 「タスク管理」タブ - AI統合タスクの管理\n"
+            "- 「デバッグ」タブ - インタラクティブデバッグ機能\n"
+            "- 「IDE連携」タブ - IDE連携機能\n"
+            "- 「システム情報」タブ - システム状態と統計情報\n\n"
             
             "何かお手伝いできることはありますか？"
         )
@@ -353,7 +458,9 @@ class JarvieeGUI:
             f"- ステータスを表示して\n"
             f"- 統合リストを表示して\n"
             f"- パイプラインリストを表示して\n"
-            f"- ヘルプを表示して"
+            f"- ヘルプを表示して\n"
+            f"- デバッグ機能について教えて\n"
+            f"- IDE連携について教えて"
         )
     
     def analyze_task(self, task_file_content: str) -> str:
@@ -473,6 +580,204 @@ class JarvieeGUI:
             return json.dumps(templates[task_type], indent=2, ensure_ascii=False)
         else:
             return json.dumps({"error": f"未知のタスクタイプ: {task_type}"}, indent=2, ensure_ascii=False)
+    
+    # デバッグ機能のハンドラー
+    def start_debug_session(self, script_path: str, args: List[str], language: str) -> Dict:
+        """
+        デバッグセッションを開始するハンドラー
+        
+        Args:
+            script_path: デバッグするスクリプトのパス
+            args: コマンドライン引数のリスト
+            language: プログラミング言語
+            
+        Returns:
+            Dict: セッション情報
+        """
+        # プロトタイプ用のモック実装
+        return {
+            "success": True,
+            "session_id": "debug-session-123",
+            "language": language,
+            "file": script_path
+        }
+    
+    def stop_debug_session(self) -> Dict:
+        """
+        デバッグセッションを停止するハンドラー
+        
+        Returns:
+            Dict: 結果情報
+        """
+        # プロトタイプ用のモック実装
+        return {"success": True}
+    
+    def pause_resume_debug(self, pause: bool) -> Dict:
+        """
+        デバッグセッションを一時停止/再開するハンドラー
+        
+        Args:
+            pause: Trueなら一時停止、Falseなら再開
+            
+        Returns:
+            Dict: 結果情報
+        """
+        # プロトタイプ用のモック実装
+        return {"success": True, "paused": pause}
+    
+    def step_debug(self, step_type: str) -> Dict:
+        """
+        ステップ実行するハンドラー
+        
+        Args:
+            step_type: ステップのタイプ（over, into, out）
+            
+        Returns:
+            Dict: 結果情報
+        """
+        # プロトタイプ用のモック実装
+        return {
+            "success": True,
+            "step_type": step_type,
+            "position": {"file": "example.py", "line": 42},
+            "call_stack": [
+                ["0", "main", "example.py", "42"],
+                ["1", "calculate", "example.py", "25"]
+            ],
+            "variables": {
+                "x": {"value": "10", "type": "int"},
+                "y": {"value": "20", "type": "int"},
+                "result": {"value": "30", "type": "int"}
+            }
+        }
+    
+    def evaluate_expression(self, expression: str) -> Dict:
+        """
+        式を評価するハンドラー
+        
+        Args:
+            expression: 評価する式
+            
+        Returns:
+            Dict: 評価結果
+        """
+        # プロトタイプ用のモック実装
+        if expression == "x + y":
+            return {
+                "success": True,
+                "value": "30",
+                "type": "int",
+                "time": "2025-04-27 15:30:45"
+            }
+        else:
+            return {
+                "success": True,
+                "value": "計算結果",
+                "type": "unknown",
+                "time": "2025-04-27 15:30:45"
+            }
+    
+    # IDE連携機能のハンドラー
+    def get_available_ides(self) -> List[Dict]:
+        """
+        利用可能なIDE一覧を取得するハンドラー
+        
+        Returns:
+            List[Dict]: IDE情報のリスト
+        """
+        # プロトタイプ用のモック実装
+        return [
+            {
+                "id": "vscode",
+                "name": "Visual Studio Code",
+                "version": "1.0.0",
+                "installed": True,
+                "is_active": False
+            },
+            {
+                "id": "intellij",
+                "name": "IntelliJ IDEA",
+                "version": "0.5.0-dev",
+                "installed": False,
+                "is_active": False
+            }
+        ]
+    
+    def connect_to_ide(self, ide_name: str) -> Dict:
+        """
+        IDEに接続するハンドラー
+        
+        Args:
+            ide_name: IDE名
+            
+        Returns:
+            Dict: 接続結果
+        """
+        # プロトタイプ用のモック実装
+        if ide_name == "vscode":
+            return {"success": True, "ide": ide_name}
+        else:
+            return {"success": False, "error": f"{ide_name}はまだ完全に実装されていません"}
+    
+    def disconnect_from_ide(self) -> Dict:
+        """
+        IDEから切断するハンドラー
+        
+        Returns:
+            Dict: 切断結果
+        """
+        # プロトタイプ用のモック実装
+        return {"success": True}
+    
+    def install_ide_extension(self, ide_name: str) -> Dict:
+        """
+        IDE拡張をインストールするハンドラー
+        
+        Args:
+            ide_name: IDE名
+            
+        Returns:
+            Dict: インストール結果
+        """
+        # プロトタイプ用のモック実装
+        if ide_name == "vscode":
+            return {"success": True, "ide": ide_name}
+        else:
+            return {"success": False, "error": f"{ide_name}拡張はまだ利用できません"}
+    
+    def uninstall_ide_extension(self, ide_name: str) -> Dict:
+        """
+        IDE拡張をアンインストールするハンドラー
+        
+        Args:
+            ide_name: IDE名
+            
+        Returns:
+            Dict: アンインストール結果
+        """
+        # プロトタイプ用のモック実装
+        if ide_name == "vscode":
+            return {"success": True, "ide": ide_name}
+        else:
+            return {"success": False, "error": f"{ide_name}拡張はまだ利用できません"}
+    
+    def launch_ide(self, ide_name: str, project_path: str) -> Dict:
+        """
+        IDEを起動するハンドラー
+        
+        Args:
+            ide_name: IDE名
+            project_path: プロジェクトパス
+            
+        Returns:
+            Dict: 起動結果
+        """
+        # プロトタイプ用のモック実装
+        if ide_name == "vscode":
+            path_info = f" ({project_path})" if project_path else ""
+            return {"success": True, "ide": ide_name, "message": f"VS Code起動{path_info}"}
+        else:
+            return {"success": False, "error": f"{ide_name}の起動はまだサポートされていません"}
 
 
 def create_ui(jarviee_gui: JarvieeGUI) -> gr.Blocks:
@@ -509,182 +814,55 @@ def create_ui(jarviee_gui: JarvieeGUI) -> gr.Blocks:
         with gr.Tabs():
             # チャットタブ
             with gr.TabItem("チャットインターフェース"):
-                chatbot = gr.Chatbot(
-                    value=[
-                        ["", "こんにちは、てゅん。Jarvieeシステムへようこそ。AI技術統合のアシスタントとして、お手伝いいたします。何かご質問やご要望はありますか？"]
-                    ],
-                    height=500
-                )
-                
-                with gr.Row():
-                    msg = gr.Textbox(
-                        placeholder="メッセージを入力してください...",
-                        scale=9
-                    )
-                    submit_btn = gr.Button("送信", scale=1)
-                
-                # ホットキーとイベントの設定
-                msg.submit(
+                # チャットパネルの作成
+                chat_panel = ChatPanel(
                     jarviee_gui.chat,
-                    [msg, chatbot, system_state],
-                    [chatbot, system_state],
-                    api_name="send_message"
+                    system_state,
+                    "こんにちは、てゅん。Jarvieeシステムへようこそ。AI技術統合のアシスタントとして、お手伝いいたします。何かご質問やご要望はありますか？"
                 )
-                submit_btn.click(
-                    jarviee_gui.chat,
-                    [msg, chatbot, system_state],
-                    [chatbot, system_state]
-                )
-                
-                # 送信後にテキストボックスをクリア
-                msg.submit(lambda: "", None, msg)
-                submit_btn.click(lambda: "", None, msg)
-                
-                # クイックコマンドボタン
-                with gr.Row():
-                    gr.Button("ステータス表示").click(
-                        lambda: "システムステータスを表示して",
-                        None,
-                        msg
-                    ).then(
-                        fn=lambda x: x,
-                        inputs=[msg],
-                        outputs=[msg],
-                        api_name=None,
-                        js="(x) => {document.querySelector('button[aria-label=\"送信\"]').click(); return x;}"
-                    )
-                    
-                    gr.Button("統合リスト").click(
-                        lambda: "統合リストを表示して",
-                        None,
-                        msg
-                    ).then(
-                        fn=lambda x: x,
-                        inputs=[msg],
-                        outputs=[msg],
-                        api_name=None,
-                        js="(x) => {document.querySelector('button[aria-label=\"送信\"]').click(); return x;}"
-                    )
-                    
-                    gr.Button("パイプラインリスト").click(
-                        lambda: "パイプラインリストを表示して",
-                        None,
-                        msg
-                    ).then(
-                        fn=lambda x: x,
-                        inputs=[msg],
-                        outputs=[msg],
-                        api_name=None,
-                        js="(x) => {document.querySelector('button[aria-label=\"送信\"]').click(); return x;}"
-                    )
-                    
-                    gr.Button("ヘルプ").click(
-                        lambda: "ヘルプを表示して",
-                        None,
-                        msg
-                    ).then(
-                        fn=lambda x: x,
-                        inputs=[msg],
-                        outputs=[msg],
-                        api_name=None,
-                        js="(x) => {document.querySelector('button[aria-label=\"送信\"]').click(); return x;}"
-                    )
+                chat_panel.create()
             
             # タスク管理タブ
             with gr.TabItem("タスク管理"):
-                with gr.Row():
-                    with gr.Column(scale=1):
-                        gr.Markdown("### タスク操作")
-                        task_type = gr.Radio(
-                            ["code_analysis", "creative_problem", "multimodal_analysis"],
-                            label="タスクタイプ",
-                            value="code_analysis"
-                        )
-                        create_template_btn = gr.Button("テンプレート作成")
-                        analyze_btn = gr.Button("タスク分析")
-                    
-                    with gr.Column(scale=2):
-                        task_editor = gr.Code(
-                            language="json",
-                            label="タスク定義",
-                            value='{\n  "type": "code_analysis",\n  "content": {\n    "code": "# あなたのコードをここに入力",\n    "language": "python"\n  }\n}'
-                        )
-                
-                with gr.Row():
-                    analysis_result = gr.Markdown("タスク分析結果がここに表示されます")
-                
-                # ボタンイベントの設定
-                create_template_btn.click(
+                # タスクパネルの作成
+                task_panel = TaskPanel(
                     jarviee_gui.create_task_template,
-                    [task_type],
-                    [task_editor]
+                    jarviee_gui.analyze_task
                 )
-                
-                analyze_btn.click(
-                    jarviee_gui.analyze_task,
-                    [task_editor],
-                    [analysis_result]
+                task_panel.create()
+            
+            # デバッグタブ
+            with gr.TabItem("デバッグ"):
+                # デバッグパネルの作成
+                debug_panel = DebugPanel(
+                    jarviee_gui.start_debug_session,
+                    jarviee_gui.stop_debug_session,
+                    jarviee_gui.pause_resume_debug,
+                    jarviee_gui.step_debug,
+                    jarviee_gui.evaluate_expression,
+                    system_state
                 )
+                debug_panel.create()
+            
+            # IDE連携タブ
+            with gr.TabItem("IDE連携"):
+                # IDE連携パネルの作成
+                ide_panel = IDEPanel(
+                    jarviee_gui.get_available_ides,
+                    jarviee_gui.connect_to_ide,
+                    jarviee_gui.disconnect_from_ide,
+                    jarviee_gui.install_ide_extension,
+                    jarviee_gui.uninstall_ide_extension,
+                    jarviee_gui.launch_ide,
+                    system_state
+                )
+                ide_panel.create()
             
             # システム情報タブ
             with gr.TabItem("システム情報"):
-                with gr.Row():
-                    with gr.Column():
-                        gr.Markdown(
-                            """
-                            ### コアコンポーネント
-                            - **LLMエンジン**: OpenAI GPT-4 / Anthropic Claude (設定による)
-                            - **知識ベース**: Neo4j + ベクトル検索
-                            - **統合フレームワーク**: カスタムメッセージングシステム
-                            
-                            ### 統合技術
-                            - **強化学習 (RL)**: Ray RLlib
-                            - **シンボリックAI**: カスタム論理エンジン
-                            - **マルチモーダルAI**: Vision + テキスト統合
-                            - **エージェント型AI**: 自律実行システム
-                            
-                            ### パフォーマンス
-                            - メモリ使用量: 1.2GB
-                            - CPU使用率: 32%
-                            - アクティブな統合: 3/4
-                            """
-                        )
-                    
-                    with gr.Column():
-                        gr.Markdown(
-                            """
-                            ### システム統計
-                            - **処理済みメッセージ**: 0
-                            - **実行済みタスク**: 45
-                            - **成功率**: 93.3% (42/45)
-                            
-                            ### ライセンス
-                            - **Jarvieeコアシステム**: Apache License 2.0
-                            - **外部依存関係**: 各ライブラリのライセンスに準拠
-                            
-                            ### バージョン情報
-                            - Jarviee プロトタイプ v0.1.0
-                            - 最終更新: 2025年4月
-                            """
-                        )
-                
-                # 統計更新用のタイマー（実際の実装では状態に基づいて動的に更新）
-                def update_stats(state):
-                    stats_md = f"""
-                    ### システム統計
-                    - **処理済みメッセージ**: {state.get("message_count", 0)}
-                    - **実行済みタスク**: 45
-                    - **成功率**: 93.3% (42/45)
-                    
-                    ### ライセンス
-                    - **Jarvieeコアシステム**: Apache License 2.0
-                    - **外部依存関係**: 各ライブラリのライセンスに準拠
-                    
-                    ### バージョン情報
-                    - Jarviee プロトタイプ v0.1.0
-                    - 最終更新: 2025年4月
-                    """
-                    return stats_md
+                # システム情報パネルの作成
+                system_panel = SystemPanel(system_state)
+                system_panel.create()
         
         # フッター
         gr.Markdown(

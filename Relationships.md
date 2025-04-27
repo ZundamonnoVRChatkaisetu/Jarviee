@@ -131,7 +131,10 @@ LLMコア
 | `src/interfaces/api/server.py` | API提供サーバー | `core/*`, `modules/*` | 外部アプリケーション |
 | `src/interfaces/api/endpoints/` | APIエンドポイント群 | `server.py` | 外部アプリケーション |
 | `src/interfaces/ui/app.py` | デスクトップアプリケーション | `core/*`, `modules/*` | - |
-| `src/interfaces/ui/components/` | UIコンポーネント群 | `ui/app.py` | - |
+| `src/interfaces/ui/vite.config.ts` | Vite設定ファイル | `@vitejs/plugin-react` | `ui/components/` |
+| `src/interfaces/ui/package.json` | npm依存関係管理 | - | `ui/components/` |
+| `src/interfaces/ui/components/` | UIコンポーネント群 | `ui/app.py`, `@mui/material`, `@mui/icons-material` | - |
+| `src/interfaces/ui/src/` | Reactアプリケーションソース | `react`, `react-dom`, `react-router-dom`, `@mui/*` | - |
 | `src/interfaces/integrations/vscode.py` | VSCode拡張連携 | `programming/*`, `api/*` | VSCode |
 | `src/interfaces/integrations/github.py` | GitHub連携 | `programming/*`, `api/*` | GitHub |
 

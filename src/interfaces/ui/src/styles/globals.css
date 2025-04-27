@@ -1,0 +1,318 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Source+Code+Pro:wght@400;500;600&display=swap');
+
+:root {
+  /* Primary colors */
+  --arc-reactor-blue: #64B5F6;
+  --hologram-aquamarine: #4DD0E1;
+  
+  /* Secondary colors */
+  --accent-red: #FF5252;
+  --iron-gold: #FFD54F;
+  
+  /* Base colors */
+  --dark-night-grey: #121212;
+  --asphalt-grey: #424242;
+  --clear-white: #FAFAFA;
+  
+  /* Functional colors */
+  --success-green: #4CAF50;
+  --warning-orange: #FF9800;
+  --error-red: #F44336;
+  --info-blue: #2196F3;
+  
+  /* Typography */
+  --font-primary: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  --font-code: 'Source Code Pro', monospace;
+  
+  /* Sizing */
+  --header-height: 64px;
+  --sidebar-width: 240px;
+  --context-panel-width: 320px;
+  
+  /* Animations */
+  --transition-fast: 150ms ease;
+  --transition-normal: 300ms ease;
+  --transition-slow: 500ms ease;
+  
+  /* Z-indices */
+  --z-background: -1;
+  --z-base: 1;
+  --z-header: 100;
+  --z-sidebar: 200;
+  --z-dropdown: 300;
+  --z-modal: 400;
+  --z-tooltip: 500;
+  --z-notification: 600;
+}
+
+/* JARVIS Theme */
+.theme-jarvis {
+  --bg-primary: var(--dark-night-grey);
+  --bg-secondary: rgba(66, 66, 66, 0.7);
+  --bg-tertiary: rgba(97, 97, 97, 0.5);
+  
+  --text-primary: var(--clear-white);
+  --text-secondary: rgba(255, 255, 255, 0.7);
+  --text-disabled: rgba(255, 255, 255, 0.5);
+  
+  --accent-primary: var(--arc-reactor-blue);
+  --accent-secondary: var(--hologram-aquamarine);
+  --accent-tertiary: var(--iron-gold);
+  
+  --border-color: rgba(255, 255, 255, 0.12);
+  --shadow-color: rgba(0, 0, 0, 0.5);
+  
+  color-scheme: dark;
+}
+
+/* Light Theme */
+.theme-light {
+  --bg-primary: #FFFFFF;
+  --bg-secondary: #F5F5F5;
+  --bg-tertiary: #EEEEEE;
+  
+  --text-primary: #212121;
+  --text-secondary: #757575;
+  --text-disabled: #9E9E9E;
+  
+  --accent-primary: #1976D2;
+  --accent-secondary: #0097A7;
+  --accent-tertiary: #FFC107;
+  
+  --border-color: rgba(0, 0, 0, 0.12);
+  --shadow-color: rgba(0, 0, 0, 0.1);
+  
+  color-scheme: light;
+}
+
+/* High Contrast Theme */
+.theme-highContrast {
+  --bg-primary: #000000;
+  --bg-secondary: #121212;
+  --bg-tertiary: #212121;
+  
+  --text-primary: #FFFFFF;
+  --text-secondary: #EEEEEE;
+  --text-disabled: #BDBDBD;
+  
+  --accent-primary: #00B0FF;
+  --accent-secondary: #00E5FF;
+  --accent-tertiary: #FFEA00;
+  
+  --border-color: rgba(255, 255, 255, 0.3);
+  --shadow-color: rgba(0, 0, 0, 0.8);
+  
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-primary);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color var(--transition-normal), color var(--transition-normal);
+}
+
+#root {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--accent-primary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-secondary);
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+  margin-bottom: 0.5em;
+  font-weight: 500;
+}
+
+h1 {
+  font-size: 2.5rem;
+}
+
+h2 {
+  font-size: 2rem;
+}
+
+h3 {
+  font-size: 1.75rem;
+}
+
+h4 {
+  font-size: 1.5rem;
+}
+
+h5 {
+  font-size: 1.25rem;
+}
+
+h6 {
+  font-size: 1rem;
+}
+
+p {
+  margin-bottom: 1em;
+  line-height: 1.6;
+}
+
+code, pre {
+  font-family: var(--font-code);
+}
+
+/* Utility classes */
+.flex {
+  display: flex;
+}
+
+.flex-col {
+  flex-direction: column;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.justify-center {
+  justify-content: center;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.grow {
+  flex-grow: 1;
+}
+
+.shrink-0 {
+  flex-shrink: 0;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.rounded {
+  border-radius: 4px;
+}
+
+.rounded-full {
+  border-radius: 9999px;
+}
+
+.hidden {
+  display: none;
+}
+
+/* Glass effect for panels */
+.glass-panel {
+  background-color: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px var(--shadow-color);
+}
+
+/* Animation classes */
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-in forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Holographic effect for JARVIS theme */
+.holographic-text {
+  color: var(--hologram-aquamarine);
+  text-shadow: 0 0 5px var(--hologram-aquamarine), 0 0 10px var(--hologram-aquamarine);
+  letter-spacing: 0.5px;
+}
+
+.arc-reactor-glow {
+  box-shadow: 0 0 10px var(--arc-reactor-blue), 0 0 20px var(--arc-reactor-blue);
+}
+
+/* Responsive breakpoints */
+@media (max-width: 1280px) {
+  :root {
+    --sidebar-width: 200px;
+    --context-panel-width: 280px;
+  }
+}
+
+@media (max-width: 768px) {
+  :root {
+    --sidebar-width: 0;
+    --context-panel-width: 0;
+  }
+  
+  .sidebar {
+    transform: translateX(-100%);
+  }
+  
+  .context-panel {
+    transform: translateX(100%);
+  }
+}

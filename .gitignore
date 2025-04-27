@@ -8,3 +8,8 @@ run-watch.bat
 venv/
 .venv
 models/*
+jarvie/
+jarvie/*
+node_modules/
+node_modules/*
+
