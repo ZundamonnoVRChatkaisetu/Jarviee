@@ -96,7 +96,13 @@ source venv/bin/activate  # Linuxの場合
 venv\Scripts\activate     # Windowsの場合
 
 # 依存パッケージのインストール
+pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu128
+
+
+pip install llama-cpp-python --force-reinstall --no-cache-dir --extra-index-url=https://jllllll.github.io/llama-cpp-python-cuBLAS-wheels/AVX2/cu128
+
 pip install -r requirements.txt
+
 
 # 設定
 cp .env.example .env

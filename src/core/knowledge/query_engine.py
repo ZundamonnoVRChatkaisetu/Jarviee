@@ -542,3 +542,8 @@ class QueryEngine:
                 text_lines.append("")
             
             return "\n".join(text_lines)
+
+# --- KnowledgeQueryEngine インターフェース雛形 ---
+class KnowledgeQueryEngine(QueryEngine):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)

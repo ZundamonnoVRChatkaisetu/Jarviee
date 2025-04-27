@@ -289,3 +289,7 @@ class EventBus:
         if len(self._event_history) > size:
             self._event_history = self._event_history[-size:]
         logger.debug(f"Max history size set to {size}")
+
+    def on(self, event_name, callback):
+        # ダミー実装: イベント購読用
+        pass

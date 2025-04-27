@@ -718,3 +718,7 @@ class DebugEngine:
         """
         if session_id in self.sessions:
             del self.sessions[session_id]
+
+
+# 互換性のためのエイリアス
+DebuggingEngine = DebugEngine

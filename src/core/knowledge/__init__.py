@@ -9,5 +9,5 @@
 """
 
 from .knowledge_base import KnowledgeBase
-from .query_engine import QueryEngine
+from .query_engine import KnowledgeQueryEngine
 from .vector_store import VectorStore

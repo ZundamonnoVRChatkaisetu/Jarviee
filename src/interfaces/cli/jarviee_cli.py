@@ -34,6 +34,7 @@ from src.core.integration.framework import (
 )
 from src.core.llm.engine import LLMEngine
 from src.core.knowledge.query_engine import QueryEngine
+from src.core.knowledge.knowledge_base import KnowledgeBase
 from src.core.utils.event_bus import EventBus
 from src.core.utils.config import Config
 
@@ -88,13 +89,73 @@ class JarvieeCLI:
         Args:
             config_path: Path to configuration file (optional)
         """
-        self.config = Config(config_path)
+        self.config = Config()
+        if config_path:
+            self.config.load_file(config_path)
         self.event_bus = EventBus()
         self.framework = None
         self.llm_engine = None
         self.query_engine = None
         
+        # チャット関連の設定
+        self.chat_mode = False
+        self.chat_history_file = Path.home() / ".jarviee_history.json"
+        self.message_history = []
+        
+        # コマンド履歴
+        self.command_history = []
+        self.max_history_size = 100
+        
+        # ユーザー設定
+        self.user_name = os.environ.get("USER", os.environ.get("USERNAME", "てゅん"))
+        
         logging.info("Jarviee CLI initialized")
+        
+    def _load_chat_history(self) -> bool:
+        """
+        チャット履歴を読み込む
+        
+        Returns:
+            読み込みに成功したかどうか
+        """
+        if not self.chat_history_file.exists():
+            return False
+            
+        try:
+            with open(self.chat_history_file, 'r', encoding='utf-8') as f:
+                history_data = json.load(f)
+                self.message_history = history_data.get("messages", [])
+                return True
+        except Exception as e:
+            logging.error(f"Failed to load chat history: {e}")
+            return False
+            
+    def _save_chat_history(self) -> bool:
+        """
+        チャット履歴を保存する
+        
+        Returns:
+            保存に成功したかどうか
+        """
+        try:
+            # 履歴の最大数を制限
+            max_messages = self.config.get("interfaces.cli.max_history", 100)
+            if len(self.message_history) > max_messages:
+                self.message_history = self.message_history[-max_messages:]
+                
+            # 保存するデータ
+            history_data = {
+                "messages": self.message_history,
+                "timestamp": time.time()
+            }
+            
+            with open(self.chat_history_file, 'w', encoding='utf-8') as f:
+                json.dump(history_data, f, ensure_ascii=False, indent=2)
+                
+            return True
+        except Exception as e:
+            logging.error(f"Failed to save chat history: {e}")
+            return False
     
     def initialize_components(self) -> None:
         """Initialize system components."""
@@ -105,16 +166,17 @@ class JarvieeCLI:
         
         # Initialize LLM engine if configured
         if self.config.get("llm.enabled", True):
-            llm_provider = self.config.get("llm.provider", "openai")
-            llm_model = self.config.get("llm.model", "gpt-4")
-            
-            console.print(f"[bold blue]Initializing LLM Engine ([/][bold green]{llm_provider}/{llm_model}[/][bold blue])...[/]")
-            self.llm_engine = LLMEngine(llm_provider, llm_model)
+            # llm_provider = self.config.get("llm.provider", "openai")
+            # llm_model = self.config.get("llm.model", "gpt-4")
+            console.print(f"[bold blue]Initializing LLM Engine...[/]")
+            self.llm_engine = LLMEngine()
         
         # Initialize query engine if configured
         if self.config.get("knowledge.enabled", True):
             console.print("[bold blue]Initializing Knowledge Query Engine...[/]")
-            self.query_engine = QueryEngine()
+            # KnowledgeBaseインスタンスを作成して渡す
+            knowledge_base = KnowledgeBase()
+            self.query_engine = QueryEngine(knowledge_base=knowledge_base)
         
         console.print("[bold green]All components initialized successfully![/]")
     
@@ -200,54 +262,50 @@ class JarvieeCLI:
             console.print("[bold red]Unknown system action[/]")
     
     def _list_integrations(self) -> None:
-        """List all available integrations."""
-        # In a real implementation, this would get actual integrations
-        # For demonstration, we'll show mock data
-        integrations = [
-            {
-                "id": "llm_rl_integration",
-                "type": "LLM_RL",
-                "active": True,
-                "capabilities": ["AUTONOMOUS_ACTION", "LEARNING_FROM_FEEDBACK"]
-            },
-            {
-                "id": "llm_symbolic_integration",
-                "type": "LLM_SYMBOLIC",
-                "active": True,
-                "capabilities": ["LOGICAL_REASONING", "CAUSAL_REASONING"]
-            },
-            {
-                "id": "llm_multimodal_integration",
-                "type": "LLM_MULTIMODAL",
-                "active": False,
-                "capabilities": ["MULTIMODAL_PERCEPTION", "PATTERN_RECOGNITION"]
-            },
-            {
-                "id": "llm_agent_integration",
-                "type": "LLM_AGENT",
-                "active": True,
-                "capabilities": ["GOAL_ORIENTED_PLANNING", "CODE_COMPREHENSION"]
-            }
-        ]
-        
+        """List all available integrations (実データ)."""
+        if not self.framework or not hasattr(self.framework, "integrations"):
+            console.print("[bold red]Integration frameworkが初期化されていません。[/]")
+            return
+        integrations = list(self.framework.integrations.values())
+        if not integrations:
+            console.print("[bold yellow]利用可能な統合はありません。[/]")
+            return
         table = Table(title="Available Integrations")
-        
         table.add_column("ID", style="cyan")
         table.add_column("Type", style="magenta")
         table.add_column("Status", style="green")
         table.add_column("Capabilities", style="yellow")
-        
         for integration in integrations:
-            status = "[green]Active" if integration["active"] else "[red]Inactive"
-            capabilities = ", ".join(integration["capabilities"])
-            
+            status = "[green]Active" if integration.active else "[red]Inactive"
+            capabilities = ", ".join([c.name for c in getattr(integration, "capabilities", set())])
             table.add_row(
-                integration["id"],
-                integration["type"],
+                integration.integration_id,
+                integration.integration_type.name if hasattr(integration, "integration_type") else "-",
                 status,
                 capabilities
             )
-        
+        console.print(table)
+
+    def _list_pipelines(self) -> None:
+        """List all available pipelines (実データ)."""
+        if not self.framework or not hasattr(self.framework, "pipelines"):
+            console.print("[bold red]Integration frameworkが初期化されていません。[/]")
+            return
+        pipelines = list(self.framework.pipelines.values())
+        if not pipelines:
+            console.print("[bold yellow]利用可能なパイプラインはありません。[/]")
+            return
+        table = Table(title="Available Pipelines")
+        table.add_column("ID", style="cyan")
+        table.add_column("Method", style="magenta")
+        table.add_column("Integrations", style="yellow")
+        for pipeline in pipelines:
+            integrations = ", ".join([i.integration_id for i in getattr(pipeline, "integrations", [])])
+            table.add_row(
+                pipeline.pipeline_id,
+                pipeline.method.name if hasattr(pipeline, "method") else "-",
+                integrations
+            )
         console.print(table)
     
     def _show_integration_info(self, integration_id: str) -> None:
@@ -325,46 +383,25 @@ class JarvieeCLI:
         console.print(f"[bold green]Integration '{integration_id}' deactivated successfully[/]")
     
     def _list_pipelines(self) -> None:
-        """List all available pipelines."""
-        # Mock data for demonstration
-        pipelines = [
-            {
-                "id": "code_optimization",
-                "method": "SEQUENTIAL",
-                "integrations": ["llm_symbolic_integration", "llm_rl_integration", "llm_agent_integration"],
-                "tasks_processed": 15
-            },
-            {
-                "id": "creative_problem_solving",
-                "method": "HYBRID",
-                "integrations": ["llm_agent_integration", "llm_rl_integration", "llm_multimodal_integration"],
-                "tasks_processed": 8
-            },
-            {
-                "id": "data_analysis",
-                "method": "PARALLEL",
-                "integrations": ["llm_symbolic_integration", "llm_multimodal_integration"],
-                "tasks_processed": 22
-            }
-        ]
-        
+        """List all available pipelines (実データ)."""
+        if not self.framework or not hasattr(self.framework, "pipelines"):
+            console.print("[bold red]Integration frameworkが初期化されていません。[/]")
+            return
+        pipelines = list(self.framework.pipelines.values())
+        if not pipelines:
+            console.print("[bold yellow]利用可能なパイプラインはありません。[/]")
+            return
         table = Table(title="Available Pipelines")
-        
         table.add_column("ID", style="cyan")
         table.add_column("Method", style="magenta")
         table.add_column("Integrations", style="yellow")
-        table.add_column("Tasks Processed", style="green")
-        
         for pipeline in pipelines:
-            integrations = ", ".join(pipeline["integrations"])
-            
+            integrations = ", ".join([i.integration_id for i in getattr(pipeline, "integrations", [])])
             table.add_row(
-                pipeline["id"],
-                pipeline["method"],
-                integrations,
-                str(pipeline["tasks_processed"])
+                pipeline.pipeline_id,
+                pipeline.method.name if hasattr(pipeline, "method") else "-",
+                integrations
             )
-        
         console.print(table)
     
     def _show_pipeline_info(self, pipeline_id: str) -> None:
@@ -433,7 +470,7 @@ class JarvieeCLI:
         method: str
     ) -> None:
         """
-        Create a new pipeline.
+        Create a new pipeline (本実装: create_pipeline)。
         
         Args:
             pipeline_id: ID for the new pipeline
@@ -449,17 +486,20 @@ class JarvieeCLI:
             console.print("[bold red]At least one integration ID is required[/]")
             return
         
-        # Simulate pipeline creation
-        console.print(f"[bold yellow]Creating pipeline '{pipeline_id}'...[/]")
-        console.print(f"[bold blue]Method:[/] {method}")
-        console.print(f"[bold blue]Integrations:[/] {', '.join(integration_ids)}")
-        
-        time.sleep(0.5)
-        console.print(f"[bold green]Pipeline '{pipeline_id}' created successfully[/]")
-    
+        try:
+            method_enum = getattr(IntegrationMethod, method.upper(), IntegrationMethod.SEQUENTIAL)
+            pipeline = self.framework.create_pipeline(
+                pipeline_id,
+                integration_ids,
+                method_enum
+            )
+            console.print(f"[bold green]Pipeline '{pipeline_id}' created successfully[/]")
+        except Exception as e:
+            console.print(f"[bold red]パイプライン作成エラー: {e}[/]")
+
     def _delete_pipeline(self, pipeline_id: str) -> None:
         """
-        Delete a pipeline.
+        Delete a pipeline (本実装: unregister_pipeline)。
         
         Args:
             pipeline_id: ID of the pipeline to delete
@@ -471,7 +511,7 @@ class JarvieeCLI:
     
     def _run_pipeline_task(self, pipeline_id: str, task_file: str) -> None:
         """
-        Run a task using a pipeline.
+        Run a task using a pipeline (本実装: process_task_with_pipeline)。
         
         Args:
             pipeline_id: ID of the pipeline to use
@@ -501,36 +541,27 @@ class JarvieeCLI:
         
         # Show a spinner or progress indicator
         with console.status("[bold green]Processing task...", spinner="dots"):
-            time.sleep(2)  # Simulate processing time
-        
-        # Simulate result
-        result = {
-            "status": "success",
-            "pipeline": pipeline_id,
-            "task_type": task_data["type"],
-            "processing_time_ms": 1875,
-            "stages": [
-                {"integration_id": "llm_symbolic_integration", "status": "success"},
-                {"integration_id": "llm_rl_integration", "status": "success"},
-                {"integration_id": "llm_agent_integration", "status": "success"}
-            ],
-            "content": {
-                "result": "Task completed successfully",
-                "output": "Simulated output from pipeline execution"
-            }
-        }
+            try:
+                result = self.framework.process_task_with_pipeline(
+                    pipeline_id,
+                    task_data["type"],
+                    task_data["content"]
+                )
+            except Exception as e:
+                console.print(f"[bold red]パイプライン実行エラー: {e}[/]")
+                return
         
         # Print the result
         console.print(Panel(
-            json.dumps(result, indent=2),
+            json.dumps(result, indent=2, ensure_ascii=False),
             title=f"Task Result",
             border_style="green",
             expand=False
         ))
-    
+
     def _run_task(self, integration_id: str, task_file: str) -> None:
         """
-        Run a task using a specific integration.
+        Run a task using a specific integration (本実装: process_task)。
         
         Args:
             integration_id: ID of the integration to use
@@ -560,28 +591,24 @@ class JarvieeCLI:
         
         # Show a spinner or progress indicator
         with console.status("[bold green]Processing task...", spinner="dots"):
-            time.sleep(1.5)  # Simulate processing time
-        
-        # Simulate result
-        result = {
-            "status": "success",
-            "integration": integration_id,
-            "task_type": task_data["type"],
-            "processing_time_ms": 1230,
-            "content": {
-                "result": "Task completed successfully",
-                "output": "Simulated output from integration execution"
-            }
-        }
+            try:
+                result = self.framework.process_task(
+                    integration_id,
+                    task_data["type"],
+                    task_data["content"]
+                )
+            except Exception as e:
+                console.print(f"[bold red]統合実行エラー: {e}[/]")
+                return
         
         # Print the result
         console.print(Panel(
-            json.dumps(result, indent=2),
+            json.dumps(result, indent=2, ensure_ascii=False),
             title=f"Task Result",
             border_style="green",
             expand=False
         ))
-    
+
     def _create_task_file(self, output_file: str, task_type: str) -> None:
         """
         Create a new task file with a template based on the task type.
@@ -654,67 +681,54 @@ class JarvieeCLI:
     
     def _analyze_task(self, task_file: str) -> None:
         """
-        Analyze a task file to check for compatibility with available integrations.
-        
-        Args:
-            task_file: Path to the task file
+        Analyze a task file to check for compatibility with available integrations (本実装)。
         """
-        # Check if the task file exists
         if not os.path.exists(task_file):
             console.print(f"[bold red]Task file '{task_file}' not found[/]")
             return
-        
-        # Load the task file
         try:
             with open(task_file, "r") as f:
                 task_data = json.load(f)
         except Exception as e:
             console.print(f"[bold red]Error loading task file: {e}[/]")
             return
-        
-        # Validate task data
         if "type" not in task_data or "content" not in task_data:
             console.print("[bold red]Invalid task file format. Must contain 'type' and 'content' fields.[/]")
             return
-        
-        # Analyze the task
         console.print(f"[bold yellow]Analyzing task file: {task_file}[/]")
         console.print(f"[bold blue]Task Type:[/] {task_data['type']}")
-        
-        # Simulate analysis
-        time.sleep(0.5)
-        
-        # Show compatible integrations
-        if task_data["type"] == "code_analysis":
-            compatible = ["llm_symbolic_integration", "llm_agent_integration"]
-            recommended = "llm_agent_integration"
-        elif task_data["type"] == "creative_problem_solving":
-            compatible = ["llm_rl_integration", "llm_agent_integration", "llm_multimodal_integration"]
-            recommended = "llm_agent_integration"
-        elif task_data["type"] == "multimodal_analysis":
-            compatible = ["llm_multimodal_integration", "llm_symbolic_integration"]
-            recommended = "llm_multimodal_integration"
-        else:
-            compatible = []
-            recommended = None
-        
-        # Show the result
+        # 実際の統合候補を抽出
+        compatible = []
+        recommended = None
+        for integration in self.framework.integrations.values():
+            if integration.active and integration.has_capability(IntegrationCapabilityTag[task_data['type'].upper()] if task_data['type'].upper() in IntegrationCapabilityTag.__members__ else None):
+                compatible.append(integration.integration_id)
+        # 推奨パイプラインを生成（create_task_pipelineで実際に作成できるか試す）
+        pipeline_id = None
+        try:
+            pipeline_id = self.framework.create_task_pipeline(
+                task_data["type"],
+                task_data["content"]
+            )
+        except Exception:
+            pipeline_id = None
+        # 推奨方式
+        suggested_method = "HYBRID" if len(compatible) > 2 else "SEQUENTIAL"
+        # 結果表示
         console.print(Panel(
             "\n".join([
                 f"[bold cyan]Task Type:[/] {task_data['type']}",
                 f"[bold cyan]Content Fields:[/] {', '.join(task_data['content'].keys())}",
                 "",
                 f"[bold cyan]Compatible Integrations:[/] {', '.join(compatible) if compatible else 'None'}",
-                f"[bold cyan]Recommended Integration:[/] {recommended if recommended else 'None'}",
-                "",
-                f"[bold cyan]Recommended Pipeline:[/] {'custom_pipeline_' + task_data['type']}",
-                f"[bold cyan]Suggested Method:[/] {'SEQUENTIAL' if len(compatible) <= 2 else 'HYBRID'}"
+                f"[bold cyan]Recommended Pipeline:[/] {pipeline_id if pipeline_id else '（自動生成不可）'}",
+                f"[bold cyan]Suggested Method:[/] {suggested_method}"
             ]),
             title=f"Task Analysis",
             border_style="blue",
             expand=False
         ))
-    
+
     def _show_system_status(self) -> None:
         """Show system status."""
         # Simulate system status
@@ -886,8 +900,95 @@ class JarvieeCLI:
                         self._analyze_task(params)
                     else:
                         console.print(f"[bold red]Unknown action: {action}[/]")
+            elif cmd.lower() == "check_gpu":
+                # GPU診断を実行
+                self._check_gpu_status()
+                
+            elif cmd.lower().startswith("chat") or cmd.lower() == "chat":
+                # チャットモードコマンドの処理
+                chat_args = cmd.lower().split()
+                
+                if len(chat_args) > 1:
+                    chat_subcmd = chat_args[1]
+                    
+                    if chat_subcmd == "exit" or chat_subcmd == "quit":
+                        # チャットモード終了
+                        if self.chat_mode:
+                            self.chat_mode = False
+                            self._save_chat_history()  # 履歴を保存
+                            console.print("[bold green]チャットモードを終了しました。コマンドモードに戻ります。[/]")
+                        else:
+                            console.print("[bold yellow]チャットモードは既に無効です。[/]")
+                            
+                    elif chat_subcmd == "clear":
+                        # 会話履歴をクリア
+                        if hasattr(self, "message_history"):
+                            # システムプロンプトは残す
+                            system_messages = [msg for msg in self.message_history if msg.get("role") == "system"]
+                            self.message_history = system_messages
+                            console.print("[bold green]会話履歴をクリアしました。[/]")
+                        
+                    elif chat_subcmd == "history":
+                        # 会話履歴を表示
+                        self._show_chat_history()
+                        
+                    elif chat_subcmd == "help":
+                        # チャットヘルプを表示
+                        self._show_chat_help()
+                        
+                    else:
+                        # 無効なサブコマンド
+                        console.print(f"[bold red]無効なチャットコマンドです: {chat_subcmd}[/]")
+                        console.print("[bold yellow]利用可能なコマンド: chat, chat exit, chat clear, chat history, chat help[/]")
+                
+                else:
+                    # チャットモードをトグル
+                    if not self.chat_mode:
+                        self.chat_mode = True
+                        
+                        # 履歴がなければ読み込み
+                        if not hasattr(self, "message_history") or not self.message_history:
+                            self._load_chat_history()
+                            
+                            # システムプロンプトがなければ追加（現在の日付を含む）
+                            if not self.message_history or not any(msg.get("role") == "system" for msg in self.message_history):
+                                # 現在の日付を取得
+                                import datetime
+                                current_date = datetime.datetime.now().strftime("%Y年%m月%d日")
+                                
+                                self.message_history = [
+                                    {
+                                        "role": "system",
+                                        "content": f"あなたはJarvieeという名前のAIアシスタントです。今日の日付は{current_date}です。ユーザーの質問に丁寧かつ簡潔に回答してください。アイアンマンに登場するAIアシスタント「ジャーヴィス」のように、ユーザーを「てゅん」と呼び、敬語ではなくフレンドリーな口調で話してください。"
+                                    }
+                                ]
+                        
+                        console.print("[bold green]チャットモードを有効にしました。対話を開始できます。[/]")
+                        console.print("[bold blue]チャットモードを終了するには 'chat exit' と入力してください。[/]")
+                        
+                        # 初回セッションの説明
+                        if not any(msg.get("role") == "assistant" for msg in self.message_history):
+                            welcome_msg = f"てゅん、ジャーヴィスです。どのようにお手伝いできますか？ AI技術統合フレームワークJarvieeへようこそ。"
+                            console.print(f"[bold blue]ジャーヴィス: [/][green]{welcome_msg}[/]")
+                            
+                            # 歓迎メッセージを履歴に追加
+                            self.message_history.append({"role": "assistant", "content": welcome_msg})
+                    else:
+                        console.print("[bold yellow]チャットモードは既に有効です。[/]")
+                        console.print("[bold blue]チャットモードを終了するには 'chat exit' と入力してください。[/]")
+            
+            elif self.chat_mode:
+                # チャットモード中はLLMで応答
+                if cmd.lower() == "exit" or cmd.lower() == "quit":
+                    # 明示的なexitコマンド
+                    self.chat_mode = False
+                    self._save_chat_history()  # 履歴を保存
+                    console.print("[bold green]チャットモードを終了しました。コマンドモードに戻ります。[/]")
+                else:
+                    self._process_chat_message(cmd)
             else:
                 console.print(f"[bold red]Unknown command: {cmd}[/]")
+                console.print("[bold yellow]Tip: 対話機能を使用するには 'chat' と入力してチャットモードを有効にしてください。[/]")
     
     def _show_help(self) -> None:
         """Show help information."""
@@ -898,6 +999,7 @@ class JarvieeCLI:
           [yellow]help[/]                      Show this help message
           [yellow]exit[/], [yellow]quit[/]                Exit the CLI
           [yellow]status[/]                    Show system status
+          [yellow]chat[/]                      Toggle chat mode for natural language conversation
         
         [bold green]Integrations:[/]
           [yellow]integrations[/]              List all available integrations
@@ -920,9 +1022,324 @@ class JarvieeCLI:
           [yellow]task create [output_file] [task_type][/]
                                     Create a new task file with a template
           [yellow]task analyze [task_file][/]  Analyze a task file for compatibility with available integrations
+        
+        [bold green]Chat Mode:[/]
+          In chat mode, you can have natural language conversations with Jarviee
+          Use [yellow]chat exit[/] to return to command mode
         """
         
         console.print(Panel(help_text, title="Jarviee CLI Help", border_style="blue"))
+        
+    def _process_chat_message(self, user_message: str) -> None:
+        """
+        自然言語メッセージを処理し、LLMエンジンを使用して応答を生成
+
+        Args:
+            user_message: ユーザーからの入力メッセージ
+        """
+        if not self.llm_engine:
+            console.print("[bold red]LLMエンジンが初期化されていません。[/]")
+            return
+            
+        # メッセージ履歴がなければ初期化
+        if not hasattr(self, "message_history"):
+            # 現在の日付を取得
+            import datetime
+            current_date = datetime.datetime.now().strftime("%Y年%m月%d日")
+            
+            # システムプロンプトを追加（現在の日付を含む）
+            self.message_history = [
+                {
+                    "role": "system",
+                    "content": f"あなたはJarvieeという名前のAIアシスタントです。今日の日付は{current_date}です。ユーザーの質問に丁寧かつ簡潔に回答してください。アイアンマンに登場するAIアシスタント「ジャーヴィス」のように、ユーザーを「てゅん」と呼び、敬語ではなくフレンドリーな口調で話してください。"
+                }
+            ]
+            
+        # メッセージの前処理（特殊タグなどを除去）
+        cleaned_message = self._clean_input_text(user_message)
+        
+        # メッセージ履歴に追加
+        self.message_history.append({"role": "user", "content": cleaned_message})
+        
+        # 処理中表示
+        with console.status("[bold green]考え中...", spinner="point"):
+            try:
+                # Gemmaモデルが利用可能かチェック
+                if "gemma" in self.llm_engine.providers:
+                    # LLMに送信（同期的に処理）
+                    response = self.llm_engine.chat_sync(self.message_history)
+                else:
+                    # モデルが利用できない場合はプレースホルダー応答
+                    response = {
+                        "content": f"てゅん、あなたのメッセージ「{user_message}」を受け取りました。申し訳ありませんが、現在Gemmaモデルが読み込まれていないため、完全な応答ができません。llama-cpp-pythonパッケージがインストールされているか確認してください。"
+                    }
+                
+                # レスポンスからXMLタグを除去
+                cleaned_response = self._clean_response_text(response["content"])
+                
+                # AIの応答をメッセージ履歴に追加（クリーンなバージョンを保存）
+                self.message_history.append({"role": "assistant", "content": cleaned_response})
+                
+                # 応答を表示（見やすい形式に整形）
+                formatted_response = self._format_assistant_response(cleaned_response)
+                console.print(f"[bold blue]ジャーヴィス: [/][green]{formatted_response}[/]")
+                
+            except Exception as e:
+                console.print(f"[bold red]エラーが発生しました: {e}[/]")
+                # エラーの詳細をログに記録
+                logging.error(f"Chat processing error: {str(e)}", exc_info=True)
+                
+    def _clean_input_text(self, text: str) -> str:
+        """
+        ユーザー入力テキストからXMLタグなどを除去
+
+        Args:
+            text: 元の入力テキスト
+            
+        Returns:
+            クリーニングされたテキスト
+        """
+        # 基本的に応答テキストと同じクリーニングを適用
+        return self._clean_response_text(text)
+        
+    def _clean_response_text(self, text: str) -> str:
+        """
+        応答テキストからXMLタグなどを除去
+
+        Args:
+            text: 元のテキスト
+            
+        Returns:
+            クリーニングされたテキスト
+        """
+        import re
+        
+        # XMLタグ除去パターン
+        patterns = [
+            # 基本的なXMLタグ
+            r'</?(assistant|user|system)>',
+            # 属性付きのタグ
+            r'</?assistant[^>]*>',
+            r'</?user[^>]*>',
+            r'</?system[^>]*>',
+            r'</?s>',
+            # 特殊タグ
+            r'</?search_reminders>.*?</search_reminders>',
+            r'</?automated_reminder_from_anthropic>.*?</automated_reminder_from_anthropic>',
+            # antmlタグ
+            r'</?antml:[^>]*>.*?</[^>]*>',
+            r'</?antml:[^>]*>',
+            # その他のマークアップ/フォーマット
+            r'</?thinking>.*?</thinking>',
+            r'</?citation[^>]*>.*?</citation>',
+            # モデル名や識別子
+            r'GPT-\d+',
+            r'Claude-\d+'
+        ]
+        
+        # 各パターンに対して処理
+        cleaned = text
+        for pattern in patterns:
+            cleaned = re.sub(pattern, '', cleaned, flags=re.DOTALL)
+        
+        # 連続する空行を1つにまとめる
+        cleaned = re.sub(r'\n{3,}', '\n\n', cleaned)
+        
+        # 先頭と末尾の空白を除去
+        cleaned = cleaned.strip()
+        
+        return cleaned
+
+    def _format_assistant_response(self, response: str) -> str:
+        """
+        アシスタントの応答を整形
+
+        Args:
+            response: 元の応答テキスト
+            
+        Returns:
+            整形された応答テキスト
+        """
+        # 行の折り返し
+        import textwrap
+        wrapped_lines = []
+        
+        # 段落ごとに処理
+        paragraphs = response.split('\n\n')
+        for paragraph in paragraphs:
+            # 各段落を折り返し
+            wrapped = textwrap.fill(paragraph, width=80)
+            wrapped_lines.append(wrapped)
+        
+        # 段落間に空行を入れて結合
+        formatted = '\n\n'.join(wrapped_lines)
+        
+        return formatted
+        
+    def _show_chat_history(self) -> None:
+        """会話履歴を表示"""
+        if not hasattr(self, "message_history") or not self.message_history:
+            console.print("[bold yellow]会話履歴はありません。[/]")
+            return
+            
+        # システムメッセージは表示しない
+        user_assistant_messages = [msg for msg in self.message_history if msg.get("role") != "system"]
+        
+        if not user_assistant_messages:
+            console.print("[bold yellow]表示可能な会話履歴はありません。[/]")
+            return
+            
+        # 履歴をテーブルで表示
+        table = Table(title="会話履歴", show_header=True, header_style="bold magenta")
+        table.add_column("#", style="dim")
+        table.add_column("役割", style="blue")
+        table.add_column("内容", style="green")
+        
+        for i, message in enumerate(user_assistant_messages, 1):
+            role = message.get("role", "unknown")
+            content = message.get("content", "")
+            
+            # 内容が長い場合は省略
+            if len(content) > 100:
+                content = content[:97] + "..."
+            
+            # 役割を日本語に変換
+            role_display = {
+                "user": "ユーザー",
+                "assistant": "ジャーヴィス",
+                "system": "システム",
+                "unknown": "不明"
+            }.get(role, role)
+            
+            table.add_row(str(i), role_display, content)
+        
+        console.print(table)
+        console.print(f"[dim]合計: {len(user_assistant_messages)}件のメッセージ[/]")
+        
+    def _check_gpu_status(self) -> None:
+        """GPU動作状況を診断して表示"""
+        console.print("[bold yellow]GPU診断を実行中...[/]")
+        
+        # CUDA利用可能かチェック
+        has_cuda = False
+        has_torch = False
+        gpu_devices = "なし"
+        
+        try:
+            import torch
+            has_torch = True
+            has_cuda = torch.cuda.is_available()
+            if has_cuda:
+                device_count = torch.cuda.device_count()
+                if device_count > 0:
+                    gpu_devices = f"{device_count}台のGPUが見つかりました："
+                    for i in range(device_count):
+                        gpu_devices += f"\n    - GPU {i}: {torch.cuda.get_device_name(i)}"
+        except ImportError:
+            console.print("[bold red]PyTorch (torch) がインストールされていません。GPU診断には必要です。[/]")
+            has_torch = False
+        
+        # llama-cpp-pythonの状況
+        has_llama_cpp = False
+        supports_gpu = False
+        
+        try:
+            from llama_cpp import Llama
+            has_llama_cpp = True
+            # llama-cpp-pythonがGPUサポートでビルドされているかチェック
+            import inspect
+            llama_init_args = inspect.signature(Llama.__init__).parameters
+            supports_gpu = 'n_gpu_layers' in llama_init_args
+        except ImportError:
+            console.print("[bold red]llama-cpp-python がインストールされていません。[/]")
+            has_llama_cpp = False
+        
+        # 結果表示
+        table = Table(title="GPU診断結果", show_header=True, header_style="bold magenta")
+        table.add_column("項目", style="cyan")
+        table.add_column("状態", style="green")
+        
+        table.add_row("PyTorch", "✅ インストール済み" if has_torch else "❌ 未インストール")
+        table.add_row("CUDA", "✅ 利用可能" if has_cuda else "❌ 利用不可")
+        table.add_row("GPUデバイス", gpu_devices)
+        table.add_row("llama-cpp-python", "✅ インストール済み" if has_llama_cpp else "❌ 未インストール")
+        table.add_row("GPUサポート", "✅ サポート" if supports_gpu else "❌ 未サポート")
+        
+        console.print(table)
+        
+        # セットアップ情報
+        if not supports_gpu:
+            console.print("\n[bold yellow]GPU対応版のllama-cpp-pythonをインストールするには:[/]")
+            console.print("""
+            pip install llama-cpp-python --force-reinstall --no-cache-dir --extra-index-url=https://jllllll.github.io/llama-cpp-python-cuBLAS-wheels/AVX2/cu117
+            
+            または、詳細は 'docs/gpu_setup.md' ファイルを参照してください。
+            """)
+        
+        # LLMエンジンの設定状況
+        if self.llm_engine:
+            console.print("\n[bold cyan]LLMエンジン設定:[/]")
+            
+            provider_info = "なし"
+            if hasattr(self.llm_engine, 'providers') and self.llm_engine.providers:
+                providers = list(self.llm_engine.providers.keys())
+                provider_info = ", ".join(providers)
+                
+            console.print(f"プロバイダー: {provider_info}")
+            console.print(f"デフォルトプロバイダー: {self.llm_engine.default_provider if hasattr(self.llm_engine, 'default_provider') else 'なし'}")
+            
+            # Gemmaプロバイダーがあればその設定を表示
+            if hasattr(self.llm_engine, 'providers') and 'gemma' in self.llm_engine.providers:
+                gemma = self.llm_engine.providers['gemma']
+                console.print("\n[bold green]Gemmaプロバイダー設定:[/]")
+                
+                # モデルパス
+                console.print(f"モデルパス: {gemma.model_path if hasattr(gemma, 'model_path') else '不明'}")
+                
+                # GPU設定
+                gpu_setting = "有効"
+                try:
+                    if not gemma.config.get('use_gpu', False):
+                        gpu_setting = "無効 (use_gpu: false)"
+                except:
+                    gpu_setting = "不明"
+                    
+                console.print(f"GPU設定: {gpu_setting}")
+                
+                # レイヤー設定
+                try:
+                    layers = gemma.config.get('n_gpu_layers', 0)
+                    console.print(f"GPU使用レイヤー: {layers} {'(すべて)' if layers == -1 else ''}")
+                except:
+                    console.print("GPU使用レイヤー: 不明")
+
+    def _show_chat_help(self) -> None:
+        """チャットモードのヘルプを表示"""
+        help_text = """
+        [bold cyan]チャットモードのコマンド:[/]
+        
+        [bold green]基本コマンド:[/]
+          [yellow]chat[/]                      チャットモードを開始
+          [yellow]chat exit[/], [yellow]exit[/]      チャットモードを終了
+          [yellow]chat clear[/]                会話履歴をクリア
+          [yellow]chat history[/]              会話履歴を表示
+          [yellow]chat help[/]                 このヘルプメッセージを表示
+          
+        [bold green]診断コマンド:[/]
+          [yellow]check_gpu[/]                 GPU動作状況を診断
+        
+        [bold green]使用方法:[/]
+          チャットモードでは、入力した内容に対してAIが自然言語で応答します。
+          応答はGemmaモデルによって生成されます。
+          
+          チャットモードを終了するには、'chat exit' または単に 'exit' と入力してください。
+          
+        [bold green]履歴管理:[/]
+          会話履歴は自動的に保存され、次回のセッションでも利用できます。
+          履歴をクリアするには 'chat clear' を使用してください。
+        """
+        
+        console.print(Panel(help_text, title="Jarviee チャットヘルプ", border_style="blue"))
 
 
 def main() -> None:

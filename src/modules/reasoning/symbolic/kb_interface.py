@@ -563,3 +563,17 @@ class SymbolicKnowledgeInterface:
         except Exception as e:
             self.logger.error(f"Error searching rules: {str(e)}")
             return []
+
+
+class KnowledgeBaseInterface:
+    def __init__(self):
+        pass
+
+    def query(self, query_str):
+        raise NotImplementedError("query() must be implemented by subclass")
+
+    def add_fact(self, fact):
+        raise NotImplementedError("add_fact() must be implemented by subclass")
+
+    def remove_fact(self, fact):
+        raise NotImplementedError("remove_fact() must be implemented by subclass")

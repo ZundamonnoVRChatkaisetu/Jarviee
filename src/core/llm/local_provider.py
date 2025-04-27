@@ -12,7 +12,7 @@ import json
 import asyncio
 from pathlib import Path
 
-from .engine import LLMProvider
+from .providers import LLMProvider
 
 class LocalModelProvider(LLMProvider):
     """ローカルモデルを利用したLLMプロバイダー（GPU対応）"""

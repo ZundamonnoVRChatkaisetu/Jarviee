@@ -88,19 +88,17 @@ class JarvieeGUI:
         logger.info("システムコンポーネントを読み込み中...")
         
         # LLM エンジンの初期化
-        llm_provider = self.config.get("llm.provider", "openai")
-        llm_model = self.config.get("llm.model", "gpt-4")
-        
         try:
-            self.llm_engine = LLMEngine(llm_provider, llm_model)
-            logger.info(f"LLMエンジン初期化: {llm_provider}/{llm_model}")
+            self.llm_engine = LLMEngine(self.config._loaded_files and list(self.config._loaded_files)[-1] or None)
+            logger.info("LLMエンジン初期化")
         except Exception as e:
             logger.error(f"LLMエンジン初期化エラー: {str(e)}")
             self.llm_engine = None
-        
         # 知識クエリエンジンの初期化
         try:
-            self.query_engine = QueryEngine()
+            from src.core.knowledge.knowledge_base import KnowledgeBase
+            kb = KnowledgeBase()
+            self.query_engine = QueryEngine(kb)
             logger.info("知識クエリエンジン初期化完了")
         except Exception as e:
             logger.error(f"知識クエリエンジン初期化エラー: {str(e)}")
@@ -225,53 +223,20 @@ class JarvieeGUI:
         system_state: Dict
     ) -> Tuple[List[List[str]], Dict]:
         """
-        チャットメッセージを処理し、応答を生成
-        
-        Args:
-            message: ユーザーからのメッセージ
-            history: これまでの会話履歴
-            system_state: システム状態を保持する辞書
-
-        Returns:
-            更新された会話履歴とシステム状態のタプル
+        チャットメッセージを処理し、LLMエンジンで応答を生成
         """
-        # 会話履歴の更新
         history.append([message, ""])
-        
-        # システム処理中のメッセージ
-        processing_msg = "てゅん、メッセージを処理しています..."
         yield history, system_state
-        
         try:
-            # 実装では実際にLLMエンジンを使用するが、プロトタイプではモック応答
-            if "status" in message.lower():
-                response = self._generate_status_response()
-            elif "integration" in message.lower():
-                response = self._generate_integration_response(message)
-            elif "pipeline" in message.lower():
-                response = self._generate_pipeline_response(message)
-            elif "help" in message.lower():
-                response = self._generate_help_response()
-            elif "debug" in message.lower():
-                response = self._generate_debug_response(message)
-            elif "ide" in message.lower():
-                response = self._generate_ide_response(message)
+            if self.llm_engine:
+                response = self.llm_engine.generate(message)
             else:
-                # デフォルトの応答
-                response = self._generate_default_response(message)
-            
-            # 応答の追加
-            time.sleep(0.5)  # 本番では不要だが、処理中の表示をデモするため
+                response = "LLMエンジンが初期化されていません。"
             history[-1][1] = response
-            
-            # システム状態の更新
             system_state["last_activity"] = time.time()
             system_state["message_count"] = system_state.get("message_count", 0) + 1
-            
         except Exception as e:
-            logger.error(f"メッセージ処理エラー: {str(e)}")
-            history[-1][1] = f"申し訳ありません、てゅん。処理中にエラーが発生しました: {str(e)}"
-        
+            history[-1][1] = f"エラー: {str(e)}"
         return history, system_state
     
     def _generate_status_response(self) -> str:

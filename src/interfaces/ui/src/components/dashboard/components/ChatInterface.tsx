@@ -6,7 +6,6 @@ import {
   Typography, 
   Avatar, 
   Paper,
-  CircularProgress,
   Tooltip,
   useTheme
 } from '@mui/material';
@@ -16,12 +15,14 @@ import MicIcon from '@mui/icons-material/Mic';
 import CodeIcon from '@mui/icons-material/Code';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import PersonIcon from '@mui/icons-material/Person';
-import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../../../store';
 import { addMessage, setTyping } from '../../../store/slices/chatSlice';
 import { motion, AnimatePresence } from 'framer-motion';
-import { v4 as uuidv4 } from 'uuid'; // Note: need to add this dependency
+import { v4 as uuidv4 } from 'uuid';
+import { LLMEngine } from '../../../core/llm/engine';
+import config from '../../../../../../../config/config.json';
+import { AppDispatch } from '../../../store';
 
 const ChatContainer = styled(Box)({
   display: 'flex',
@@ -164,10 +165,11 @@ const exampleMessages = [
 
 const ChatInterface: React.FC = () => {
   const theme = useTheme();
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const { messages, isTyping } = useSelector((state: RootState) => state.chat);
-  
+
   const [inputValue, setInputValue] = useState('');
+  const llmEngine = useRef(new LLMEngine(config)).current;
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // For demo purposes, use the example messages if no messages in state
@@ -202,18 +204,40 @@ const ChatInterface: React.FC = () => {
       // Simulate assistant typing
       dispatch(setTyping(true));
       
-      // Simulate assistant response after a delay
-      setTimeout(() => {
-        dispatch(
-          addMessage({
-            id: uuidv4(),
-            content: `I'm processing your request: "${inputValue.trim()}"`,
-            role: 'assistant',
-            timestamp: Date.now(),
-          })
-        );
-        dispatch(setTyping(false));
-      }, 2000);
+      // Call LLM Engine to generate response
+      // Call LLM Engine via API
+      dispatch(setTyping(true));
+      fetch('/llm/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: inputValue.trim() }),
+      })
+        .then(response => response.json())
+        .then(data => {
+          dispatch(
+            addMessage({
+              id: uuidv4(),
+              content: data.response,
+              role: 'assistant',
+              timestamp: Date.now(),
+            })
+          );
+          dispatch(setTyping(false));
+        })
+        .catch(error => {
+          console.error("LLM Engine Error:", error);
+          dispatch(
+            addMessage({
+              id: uuidv4(),
+              content: "Error generating response.",
+              role: 'assistant',
+              timestamp: Date.now(),
+            })
+          );
+          dispatch(setTyping(false));
+        });
     }
   };
   

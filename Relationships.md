@@ -135,6 +135,7 @@ LLMコア
 | `src/interfaces/ui/package.json` | npm依存関係管理 | - | `ui/components/` |
 | `src/interfaces/ui/components/` | UIコンポーネント群 | `ui/app.py`, `@mui/material`, `@mui/icons-material` | - |
 | `src/interfaces/ui/src/` | Reactアプリケーションソース | `react`, `react-dom`, `react-router-dom`, `@mui/*` | - |
+| `src/interfaces/ui/src/core/llm/engine.ts` | LLMエンジンTypeScriptインターフェース | `api/llm/*` | UIコンポーネント |
 | `src/interfaces/integrations/vscode.py` | VSCode拡張連携 | `programming/*`, `api/*` | VSCode |
 | `src/interfaces/integrations/github.py` | GitHub連携 | `programming/*`, `api/*` | GitHub |
 
@@ -318,3 +319,27 @@ tests/conftest.py → tests/*/test_*.py → src/*
 | `src/modules/learning/trends.json` | 技術トレンドデータ | 週次 |
 | `data/knowledge_base/facts.json` | 基本事実データ | 月次 |
 | `config/security_rules.json` | セキュリティルール | 月次 |
+
+## 9. バグ修正・強化履歴
+
+### 9.1 主要バグ修正
+
+| 日付 | 修正ファイル | 問題内容 | 修正内容 |
+|------|------------|---------|---------|
+| 2025-04-27 | `src/interfaces/cli/jarviee_cli.py` | QueryEngineインスタンス化時にknowledge_baseパラメータが渡されていなかった | KnowledgeBaseインスタンスを作成して適切に渡すよう修正 |
+| 2025-04-27 | `src/interfaces/cli/jarviee_cli.py` | CLIで自然言語会話処理機能が未実装だった | チャットモード切替機能と会話処理メソッドを追加 |
+| 2025-04-27 | `config/config.json` | Gemmaモデルへの参照が設定ファイルに存在しなかった | Gemmaモデル設定を追加し、デフォルトプロバイダーとして設定 |
+| 2025-04-27 | `src/core/llm/providers/` | LLMプロバイダー実装が基本的なスケルトンのみだった | Gemmaモデル用の実装を追加、ローカルモデル対応を強化 |
+| 2025-04-27 | `src/core/llm/engine.py` | LLMエンジンが非同期APIのみでCLIから使いにくかった | 同期APIを追加し、CLIからの直接呼び出しをサポート |
+| 2025-04-27 | `src/interfaces/cli/jarviee_cli.py` | 会話履歴が保存されず、セッション間で連続性がなかった | 会話履歴の保存と読み込み機能を追加 |
+| 2025-04-27 | `requirements.txt` | Gemmaモデル用の依存関係が不足していた | llama-cpp-pythonパッケージを追加 |
+| 2025-04-28 | `jarviee.py` | 単一ファイルからのCUI/GUI選択機能が未実装だった | インタラクティブインターフェース選択機能を追加 |
+| 2025-04-28 | `jarviee.py` | GPUサポートが不十分だった | 自動GPU検出と設定機能を追加、最適化オプションを実装 |
+| 2025-04-28 | `docs/gpu/setup.md` | GPU設定に関するドキュメントが不足していた | 詳細なGPU設定ガイドを作成 |
+
+### 9.2 コンポーネント相互依存関係の改善
+
+インスタンス化の順序や必須依存関係を明確化し、コンポーネント間の整合性を改善：
+
+1. `JarvieeCLI.initialize_components()`: コンポーネント初期化メソッドにおいて、依存関係のあるコンポーネントが正しい順序で初期化されるよう修正
+2. `QueryEngine`: 知識ベースをコンストラクタで要求する設計に対応するよう、呼び出し側のコードを修正

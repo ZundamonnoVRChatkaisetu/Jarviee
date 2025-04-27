@@ -27,38 +27,32 @@ class Config:
     _instance = None  # Singleton instance
     _lock = threading.RLock()  # Thread-safe lock
     
-    def __new__(cls):
+    def __new__(cls, *args, **kwargs):
         """Ensure Config is a singleton."""
         if cls._instance is None:
             cls._instance = super(Config, cls).__new__(cls)
             cls._instance._initialized = False
         return cls._instance
     
-    def __init__(self):
+    def __init__(self, config_path: str = None):
         """Initialize the config manager if not already initialized."""
         if self._initialized:
             return
-            
         self._config_data = {}
-        self._observers = {}  # Key -> callback mapping
-        self._loaded_files = set()  # Track loaded files
-        self._env_prefix = "JARVIEE_"  # Prefix for environment variables
-        
-        # Default paths
+        self._observers = {}
+        self._loaded_files = set()
+        self._env_prefix = "JARVIEE_"
         self._config_dir = os.environ.get("JARVIEE_CONFIG_DIR", "config")
-        
-        # Default config file order (later files override earlier ones)
         self._default_configs = [
             Path(self._config_dir) / "default.yaml",
             Path(self._config_dir) / "default.json",
             Path(self._config_dir) / "local.yaml",
             Path(self._config_dir) / "local.json",
         ]
-        
         self._initialized = True
-        
-        # Load default configs
         self.load_defaults()
+        if config_path:
+            self.load_file(config_path)
     
     def load_defaults(self) -> bool:
         """
